@@ -1,4 +1,4 @@
 # osi-stack
-ISO OSI (Open Systems Interconnection) Stack
+ISO/ITU-T/IETF OSI (Open Systems Interconnection) Stack
 
 (WIP)
