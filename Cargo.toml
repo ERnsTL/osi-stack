@@ -1,0 +1,20 @@
+[package]
+name = "osistack"
+version = "0.0.1"
+edition = "2021"
+authors = ["Ernst Rohlicek <ernst@rohlicek.at>"]
+repository = "https://github.com/ERnsTL/osi-stack"
+license = "GNU/LGPL-3.0+"
+description = "OSI (Open Systems Interconnection) Stack"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[lib]
+name = "osistack"
+path = "src/lib.rs"
+
+[[bin]]
+name = "osiping"
+path = "src/bin.rs"
