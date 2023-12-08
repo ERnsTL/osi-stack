@@ -19,9 +19,11 @@ netconfig = "0.4.0" # TODO this does a lot of things we dont need (IP-related st
 # Ethernet frame parser
 #ethernet = "0.1.1" # most minimal, but didnt compile
 # alternative (many IP suite protocols):  https://crates.io/crates/etherparse
-etherparse = "0.13.0"
+#etherparse = "0.13.0"
 advmac = "1.0.3"    # used by pdu+netconfig
 # alternative (fuzzed, datalink+network+transport layer development possible, Linux Windows MacOS):  https://crates.io/crates/pnet_datalink
+[dependencies.pnet]
+version = "0.34.0"
 
 # TODO only lib needs the dependencies
 

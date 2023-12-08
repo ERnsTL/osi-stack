@@ -130,4 +130,14 @@ net/core/dev.c:		kfree_skb_reason(skb, SKB_DROP_REASON_UNHANDLED_PROTO);
 * But it makes sense somehow:  The TAP device is in full promiscuous mode and we did not register with the kernel. It does not know about which EtherTypes we are working with, whether we send layer 2 packets or really layer2+3+4 (Ethernet + IP + UDP) and just assemble the packets manually in userspace for some whatever reason...
 * Trying these "raw" sockets.
 
+* pnet crate is not there yet, layer 2 does not work and layer 3 would be nice but "destination [MAC] address is ignored for now" - meaning it always sends to itself, this is not usable yet as of version 0.34.0
+  * https://github.com/libpnet/libpnet/blob/87f362dea40a0a58b2b1660c51038343c0731dea/pnet_datalink/src/linux.rs#L235
+
 TODO To be continued...
+
+sudo ip tuntap add mode tap user ernst group ernst
+sudo ip link set dev tap0 down
+sudo ip link set dev tap0 address de:ad:be:ef:11:11
+sudo ip link set dev tap0 up
+sudo ip link
+    -> NO-CARRIER = no program opened socket on it
