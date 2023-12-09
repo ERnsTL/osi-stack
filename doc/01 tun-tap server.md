@@ -133,11 +133,15 @@ net/core/dev.c:		kfree_skb_reason(skb, SKB_DROP_REASON_UNHANDLED_PROTO);
 * pnet crate is not there yet, layer 2 does not work and layer 3 would be nice but "destination [MAC] address is ignored for now" - meaning it always sends to itself, this is not usable yet as of version 0.34.0
   * https://github.com/libpnet/libpnet/blob/87f362dea40a0a58b2b1660c51038343c0731dea/pnet_datalink/src/linux.rs#L235
 
-TODO To be continued...
+* Experimented with permanent tap interfaces:
 
-sudo ip tuntap add mode tap user ernst group ernst
-sudo ip link set dev tap0 down
-sudo ip link set dev tap0 address de:ad:be:ef:11:11
-sudo ip link set dev tap0 up
-sudo ip link
-    -> NO-CARRIER = no program opened socket on it
+  ```
+  sudo ip tuntap add mode tap user ernst group ernst
+  sudo ip link set dev tap0 down
+  sudo ip link set dev tap0 address de:ad:be:ef:11:11
+  sudo ip link set dev tap0 up
+  sudo ip link
+  -> NO-CARRIER = means no program opened socket on it yet
+  ```
+
+* After much trying with routing, ebtables etc. getting the packets to go from one tap interface to another, a more direct way is to simply bind a raw socket to an existing network interface as described above (PF_PACKET, SOCK_RAW, ethertype). Tested with afsocket interface - rustix and pnet should probably also work. And works.
