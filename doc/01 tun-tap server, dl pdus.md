@@ -9,6 +9,10 @@ Goal:
 * Send and receive packets from/to TAP device.
 * Parse Ethernet frames.
 
+References:
+
+* https://datatracker.ietf.org/doc/html/draft-kaplan-isis-ext-eth-ip-clns-2-00
+
 ## Do
 
 * CLNP has two possible encapsulations on Layer 2:
