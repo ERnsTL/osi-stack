@@ -1,4 +1,4 @@
-//use etherparse::{SlicedPacket, ether_type, VlanSlice, SingleVlanHeaderSlice, Ethernet2Header};
+use etherparse::{SlicedPacket, ether_type, VlanSlice, SingleVlanHeaderSlice, Ethernet2Header};
 use netconfig::sys::InterfaceExt;
 use pnet::datalink::Config;
 use tun_tap::{Iface, Mode};
@@ -13,6 +13,10 @@ use pnet::datalink::{self, NetworkInterface, EtherType};
 use pnet::datalink::Channel::Ethernet;
 use pnet::packet::{Packet, MutablePacket};
 use pnet::packet::ethernet::{EthernetPacket, MutableEthernetPacket};
+
+use afpacket::sync::RawPacketStream;
+use std::io::{Read, Write};
+use nom::HexDisplay;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
@@ -236,5 +240,73 @@ mod tests {
     fn it_works() {
         let result = add(2, 2);
         assert_eq!(result, 4);
+    }
+}
+
+// TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
+pub fn new_interface2(interface_name: &str, dest_macaddr: Option<MacAddr6>) -> String {
+    let mut ps = RawPacketStream::new_with_ethertype(ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
+    ps.bind_with_ethertype(interface_name, ETHER_TYPE_CLNP).expect("failed to bind to interface");
+
+    // configure interface
+    let iface_config = Interface::try_from_name(interface_name).expect("could not look up interface by name");
+
+    // get MAC address
+    let macaddr = iface_config.hwaddress().expect("could not get hardware address of interface");
+    println!("got DLSAP: {}", macaddr);
+    
+    // dont need it anymore
+    drop(iface_config);
+    
+    // write packets
+    if dest_macaddr.is_some() {
+        let mut ps2 = ps.clone();
+        let _ = thread::spawn(move || {
+            loop {
+                print!("sending packet...");
+                let pkt_out = etherparse::Ethernet2Header{
+                    destination: dest_macaddr.unwrap().to_array(),
+                    source: macaddr.to_array(),
+                    ether_type: ETHER_TYPE_CLNP,
+                };
+                //println!("writing...");
+                pkt_out.write(&mut ps2).expect("failed writing packet into socket");
+                //println!("flushing...");
+                ps2.flush().expect("failed to flush socket");
+                println!("done");
+
+                thread::sleep(Duration::from_secs(2));
+            }
+        });
+    } else {
+        println!("no destination DLSAP given, not sending packets");
+    }
+
+    // read packet
+    loop {
+        let mut buffer = [0u8; 1500];
+        println!("reading packet...");
+        ps.read(&mut buffer).unwrap();
+        //println!("got packet: {}", buffer.to_hex(24));
+        
+        // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
+        let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(&buffer).expect("could not parse Ethernet2 header");
+        println!("destination: {:x?}  source: {:x?}  ethertype: 0x{:04x}", eth_header.destination(), eth_header.source(), eth_header.ether_type());
+        let mut vlan_len: usize = 0;
+        match eth_header.ether_type() {
+            ether_type::VLAN_TAGGED_FRAME | ether_type::PROVIDER_BRIDGING | ether_type::VLAN_DOUBLE_TAGGED_FRAME => {
+                let vlan_header = SingleVlanHeaderSlice::from_slice(&buffer[eth_header.slice().len()-1..buffer.len()-1]).expect("could not parse single VLAN header");
+                println!("vlan: {:?}", vlan_header);
+                vlan_len = vlan_header.slice().len();
+                //TODO handle what comes after vlan
+            },
+            ether_type::IPV6 => { println!("{}", "got ipv6, ignoring"); }
+            ether_type::IPV4 => { println!("{}", "got ipv4, ignoring"); }
+            ETHER_TYPE_CLNP => { println!("ah, got CLNP - feel warmly welcome!"); }
+            _ => { println!("{}", "got unknown, discarding"); }
+        }
+
+        //let network_slice = &buffer[eth_header.slice().len() + vlan_len .. read_bytes];
+        //println!("network_data: {:?}  len={}", network_slice, network_slice.len());
     }
 }

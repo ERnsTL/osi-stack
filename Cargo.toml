@@ -10,6 +10,18 @@ description = "OSI (Open Systems Interconnection) Stack"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
+# raw sockets
+# crate option 1
+afpacket = "0.2.3"
+nom = "7.1.3"
+
+# crate option 2
+rustix = { version = "0.38.28", default-features = false, features = ["net"] }
+
+
+
+
 # TODO anyone offering Windows TAP? And MacOS TAP (feth)?
 tun-tap = { version = "0.1.4", default-features = false }  # no tokio   # features = ["libc"] would add set_nonblocking() feature
 #tunio = "0.3.0"
@@ -19,7 +31,7 @@ netconfig = "0.4.0" # TODO this does a lot of things we dont need (IP-related st
 # Ethernet frame parser
 #ethernet = "0.1.1" # most minimal, but didnt compile
 # alternative (many IP suite protocols):  https://crates.io/crates/etherparse
-#etherparse = "0.13.0"
+etherparse = "0.13.0"
 advmac = "1.0.3"    # used by pdu+netconfig
 # alternative (fuzzed, datalink+network+transport layer development possible, Linux Windows MacOS):  https://crates.io/crates/pnet_datalink
 [dependencies.pnet]
