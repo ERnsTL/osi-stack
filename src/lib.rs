@@ -258,19 +258,19 @@ pub fn new_interface2(interface_name: &str, dest_macaddr: Option<MacAddr6>) -> S
     // dont need it anymore
     drop(iface_config);
     
-    // write packets
+    // write frames
     if dest_macaddr.is_some() {
         let mut ps2 = ps.clone();
         let _ = thread::spawn(move || {
             loop {
-                print!("sending packet...");
+                print!("sending frame...");
                 let pkt_out = etherparse::Ethernet2Header{
                     destination: dest_macaddr.unwrap().to_array(),
                     source: macaddr.to_array(),
                     ether_type: ETHER_TYPE_CLNP,
                 };
                 //println!("writing...");
-                pkt_out.write(&mut ps2).expect("failed writing packet into socket");
+                pkt_out.write(&mut ps2).expect("failed writing frame into socket");
                 //println!("flushing...");
                 ps2.flush().expect("failed to flush socket");
                 println!("done");
@@ -279,15 +279,15 @@ pub fn new_interface2(interface_name: &str, dest_macaddr: Option<MacAddr6>) -> S
             }
         });
     } else {
-        println!("no destination DLSAP given, not sending packets");
+        println!("no destination DLSAP given, not sending frames");
     }
 
-    // read packet
+    // read frame
     loop {
         let mut buffer = [0u8; 1500];
-        println!("reading packet...");
+        println!("reading frame...");
         ps.read(&mut buffer).unwrap();
-        //println!("got packet: {}", buffer.to_hex(24));
+        //println!("got frame: {}", buffer.to_hex(24));
         
         // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
         let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(&buffer).expect("could not parse Ethernet2 header");
