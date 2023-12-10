@@ -3,6 +3,7 @@
 Goal:
 
 * Analyze X.233 standard document and structure the work.
+* Add CLNP PDU structs and its parts.
 * Add PDU composition for Inactive Protocol subset.
 * Add PDU decomposition function for Inactive Protocol subset.
 * Add header analysis function for inactive protocol subset.
