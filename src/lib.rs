@@ -565,44 +565,41 @@ pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &
     // get MAC address
     let macaddr = iface_config.hwaddress().expect("could not get hardware address of interface");
     println!("got DLSAP: {}", macaddr);
-    
+
     // dont need it anymore
     drop(iface_config);
 
     // start up OSI network service
-    let mut ns = NClnpService::new(ps);
+    let mut ns = NClnpService::new(ps.clone());
     // set own/serviced NSAPs
     ns.add_serviced_subnet_nsap(1, 1, macaddr);
     // add known hosts
     for host in hosts {
         ns.add_known_host(host.0.to_owned(), host.1);   //TODO optimize clone
     }
-    
-    // write frames
-    if dest_macaddr.is_some() {
-        let mut ps2 = ps.clone();
-        let _ = thread::spawn(move || {
-            loop {
-                print!("sending frame...");
-                let pkt_out = etherparse::Ethernet2Header{
-                    destination: dest_macaddr.unwrap().to_array(),
-                    source: macaddr.to_array(),
-                    ether_type: ETHER_TYPE_CLNP,
-                };
-                //println!("writing...");
-                pkt_out.write(&mut ps2).expect("failed writing frame into socket");
-                //println!("flushing...");
-                ps2.flush().expect("failed to flush socket");
-                println!("done");
 
-                thread::sleep(Duration::from_secs(2));
-            }
-        });
-    } else {
-        println!("no destination DLSAP given, not sending frames");
-    }
+    // send request to other host
+    let qos = Qos{};
+    let dest_host2 = dest_host.to_owned();  // clone in order to give it the thread
+    let _ = thread::spawn(move || {
+        let dest_host3 = dest_host2.as_str();
+        loop {
+            print!("sending packet...");
+            ns.n_unitdata_request(
+                dest_host3,
+                &qos,
+                r"test".as_bytes()
+            );
+            println!("done");
+
+            thread::sleep(Duration::from_secs(2));
+        }
+    });
 
     // read frame
+    //TODO change to use network service
+    //TODO currently it does not have that feature
+    let qos = Qos{};
     loop {
         let mut buffer = [0u8; 1500];
         println!("reading frame...");
@@ -625,6 +622,17 @@ pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &
             ETHER_TYPE_CLNP => { println!("ah, got CLNP - feel warmly welcome!"); }
             _ => { println!("{}", "got unknown, discarding"); }
         }
+
+        // forward up from DL to N layer
+        //TODO this method will need &mut self at some point, but this will create 2 borrows - one for read and one for write
+        //TODO must enable 2 threads working inside NClnpService.
+        //TODO modify to have NClnpService .read and .write inner parts - only these get borrowed. And these 2 only lock the shared host lists etc. when really needed.
+        NClnpService::n_unitdata_indication(
+            MacAddr6::from(eth_header.source()),
+            MacAddr6::from(eth_header.destination()),
+            &qos,
+            &buffer[0+14..buffer.len()]
+        );
 
         //let network_slice = &buffer[eth_header.slice().len() + vlan_len .. read_bytes];
         //println!("network_data: {:?}  len={}", network_slice, network_slice.len());
