@@ -228,12 +228,55 @@ struct NFixedPart<'a> {
     lifetime: &'a u8,
     /// 0 = not permitted, no segmentation part present in PDU, non-segmenting protocol subset in use
     /// 1 = permitted, segmentation part shall be present in PDU, full protocol is in use
-    sp_segmentation_permitted: bool,   //TODO sub-byte value
-    ms_more_segments: bool,   //TODO sub-byte value
-    er_error_report: bool,  //TODO sub-byte value
-    type_: bool, //TODO sub-byte value
+    sp_segmentation_permitted: bool,   // 1 bit
+    ms_more_segments: bool,   // 1 bit
+    er_error_report: bool,  // 1 bit
+    type_: bool, // 5 bits
+    /// contains ^ sub-bit values
+    octet5: &'a u8,
     segment_length: &'a u16,
     checksum: &'a u16
+}
+
+enum SpSegmentationPermittedBit {
+    ONE = 0b1000_0000,
+    ZERO = 0b0000_0000
+}
+
+enum MsMoreSegmentsBit {
+    ONE = 0b0100_0000,
+    ZERO = 0b0000_0000
+}
+
+enum ErErrorReportBit {
+    ONE = 0b0010_0000,
+    ZERO = 0b0000_0000
+}
+
+
+impl NFixedPart<'_> {
+    /// Return the bits for octet 5 of the fixed part of the NPDU
+    fn compose_octet5(sp_segmentation_permitted: SpSegmentationPermittedBit,
+        ms_more_segments: MsMoreSegmentsBit,
+        er_error_report: ErErrorReportBit,
+        type_: u8
+    ) -> Option<u8>  {
+        if type_ >= 32 {
+            // only have 5 bits of space (0 to 31)
+            return None;
+        }
+        return Some(sp_segmentation_permitted as u8 | ms_more_segments as u8 | er_error_report as u8| type_);
+    }
+
+    /// Return the bits for octet 5 of the fixed part of the NPDU
+    fn compose_octet5_unchecked(sp_segmentation_permitted: SpSegmentationPermittedBit,
+        ms_more_segments: MsMoreSegmentsBit,
+        er_error_report: ErErrorReportBit,
+        type_: u8
+    ) -> u8  {
+        // simply overwrites any data in bits 1,2,3 if number in type uses more than 5 bits
+        return sp_segmentation_permitted as u8 | ms_more_segments as u8 | er_error_report as u8| type_;
+    }
 }
 
 struct NAddressPart<'a> {
