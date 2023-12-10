@@ -6,7 +6,7 @@ use netconfig::Interface;
 //use ethernet::Ethernet2Header;
 //use pdu::EthernetPdu;
 use advmac::MacAddr6;   // used by pdu+netconfig
-use std::{thread, time::Duration};
+use std::{thread, time::Duration, result::Result};
 
 extern crate pnet;
 use pnet::datalink::{self, NetworkInterface, EtherType};
@@ -16,7 +16,7 @@ use pnet::packet::ethernet::{EthernetPacket, MutableEthernetPacket};
 
 use afpacket::sync::RawPacketStream;
 use std::io::{Read, Write};
-use nom::HexDisplay;
+//use nom::HexDisplay;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
@@ -206,30 +206,68 @@ pub fn new_interface(macaddr: Option<MacAddr6>, dest_macaddr: Option<MacAddr6>) 
     }
 }
 
-//#[packet]
-#[allow(non_snake_case)]
-pub struct ClnpPdu {
-
+enum NClnpPdu<'a> {
+    Inactive(NFixedPartMiniForInactive<'a>, NDataPart<'a>),
+    NDataPDU {fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
+    // no segmentation, but reason for discard is mandatory
+    ErrorReportPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, op: Option<NOptionsPart<'a>>, discard: NReasonForDiscardPart<'a>, data: Option<NDataPart<'a>> },
+    // these are the same as DataPDU / DT PDU
+    EchoRequestPDU{ fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
+    EchoResponsePDU{ fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
+    MulticastDataPDU{ fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> }
 }
 
-impl Packet for ClnpPdu {
-    fn packet(&self) -> &[u8] {
-        todo!()
-    }
-
-    fn payload(&self) -> &[u8] {
-        todo!()
-    }
+struct NFixedPartMiniForInactive<'a> {
+    network_layer_protocol_identifier: &'a u8
 }
 
-impl MutablePacket for ClnpPdu {
-    fn packet_mut(&mut self) -> &mut [u8] {
-        todo!()
-    }
+struct NFixedPart<'a> {
+    network_layer_protocol_identifier: &'a u8,
+    length_indicator: &'a u8,
+    version_protocol_id_extension: &'a u8,
+    lifetime: &'a u8,
+    /// 0 = not permitted, no segmentation part present in PDU, non-segmenting protocol subset in use
+    /// 1 = permitted, segmentation part shall be present in PDU, full protocol is in use
+    sp_segmentation_permitted: bool,   //TODO sub-byte value
+    ms_more_segments: bool,   //TODO sub-byte value
+    er_error_report: bool,  //TODO sub-byte value
+    type_: bool, //TODO sub-byte value
+    segment_length: &'a u16,
+    checksum: &'a u16
+}
 
-    fn payload_mut(&mut self) -> &mut [u8] {
-        todo!()
-    }
+struct NAddressPart<'a> {
+    destination_address_length_indicator: &'a u8,
+    destination_address: &'a [u8],
+    source_address_length_indicator: &'a u8,
+    source_address: &'a [u8]
+}
+
+struct NSegmentationPart<'a> {
+    data_unit_identifier: &'a u16,
+    segment_offset: &'a u16,
+    total_length: &'a u16
+}
+
+struct NOptionsPart<'a> {
+    params: &'a [NParameter<'a>]
+}
+
+/// only contained in NOptionsPart
+//TODO decomposition of these parameters
+struct NParameter<'a> {
+    parameter_code: &'a u8,
+    parameter_length: &'a u8,
+    parameter_value: &'a [u8],
+}
+
+struct NReasonForDiscardPart<'a> {
+    /// has format of a parameter from the options part
+    param: &'a NParameter<'a>   //TODO enforce that here only parameter code "1100 0001" is allowed
+}
+
+struct NDataPart<'a> {
+    data: &'a [u8]
 }
 
 #[cfg(test)]
