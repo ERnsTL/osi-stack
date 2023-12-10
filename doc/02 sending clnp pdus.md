@@ -3,7 +3,7 @@
 Goal:
 
 * Analyze X.233 standard document and structure the work.
-* Add CLNP PDU structs and its parts.
+* Add CLNP PDU structs and its parts, minus options parameter details.
 * Add PDU composition for Inactive Protocol subset.
 * Add PDU decomposition function for Inactive Protocol subset.
 * Add header analysis function for inactive protocol subset.
@@ -16,6 +16,10 @@ Goal:
 * Add Echo Response function.
 * Add Error Reporting for everything else.
 * Send echo request, echo response.
+---
+04:
+* Add full struct and decomposition of options part resp. parameter meanings.
+* Implement full protocol support.
 
 References:
 
