@@ -13,6 +13,7 @@ References:
 
 * https://datatracker.ietf.org/doc/html/draft-kaplan-isis-ext-eth-ip-clns-2-00
 
+
 ## Do
 
 * CLNP has two possible encapsulations on Layer 2:
@@ -150,9 +151,11 @@ net/core/dev.c:		kfree_skb_reason(skb, SKB_DROP_REASON_UNHANDLED_PROTO);
 
 * After much trying with routing, ebtables etc. getting the packets to go from one tap interface to another, a more direct way is to simply bind a raw socket to an existing network interface as described above (PF_PACKET, SOCK_RAW, ethertype). Tested with afsocket interface - rustix and pnet should probably also work. And works.
 
+
 ## Check
 
 * Sending and receiving works between two computers on an Ethernet network.
+
 
 ## Act
 
