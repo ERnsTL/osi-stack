@@ -4,9 +4,10 @@ Goal:
 
 * Analyze X.233 standard document and structure the work.
 * Add CLNP PDU structs and its parts, minus options parameter details.
-* Add PDU composition for Inactive Protocol subset.
+* Add sub-bit handling of fixed part of NPDU.
+* Add header format analysis function for inactive protocol subset.
+* Add PDU composition function for Inactive Protocol subset.
 * Add PDU decomposition function for Inactive Protocol subset.
-* Add header analysis function for inactive protocol subset.
 * Send NPDU (CLNP inactive protocol subset) instead of empty Ethernet frame.
 * Parse CLNP instead upon reception.
 ---

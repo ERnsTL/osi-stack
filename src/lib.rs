@@ -221,6 +221,10 @@ struct NFixedPartMiniForInactive<'a> {
     network_layer_protocol_identifier: &'a u8
 }
 
+// TODO was not possible to have it as an enum and match on it, comparing to u8
+const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL: u8 = 0b1000_0001;
+const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE: u8 = 0b0000_0000;
+
 struct NFixedPart<'a> {
     network_layer_protocol_identifier: &'a u8,
     length_indicator: &'a u8,
@@ -252,7 +256,6 @@ enum ErErrorReportBit {
     ONE = 0b0010_0000,
     ZERO = 0b0000_0000
 }
-
 
 impl NFixedPart<'_> {
     /// Return the bits for octet 5 of the fixed part of the NPDU
@@ -311,6 +314,29 @@ struct NReasonForDiscardPart<'a> {
 
 struct NDataPart<'a> {
     data: &'a [u8]
+}
+
+enum HeaderFormatAnalysisResult {
+    TooShortTooIdentify,
+    FullProtocol,
+    InactiveProtocol,
+    UnknownProtocol,
+}
+
+// 6.3
+// TODO only what is neccessary for inactive protocol subset
+fn header_format_analysis(packet: &[u8]) -> HeaderFormatAnalysisResult {
+    if packet.len() < 1 {
+        return HeaderFormatAnalysisResult::TooShortTooIdentify;
+    }
+    match packet[0] {
+        NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL => HeaderFormatAnalysisResult::FullProtocol,
+        NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE => HeaderFormatAnalysisResult::InactiveProtocol,
+        //TODO check after ^ The Network entity in this case determines that either the Subnetwork Point of Attachment
+        //(SNPA) address encoded as NPAI in the supporting subnetwork protocol (see 8.1) corresponds directly to an NSAP
+        //address serviced by this Network entity, or that an error has occurred.
+        _ => HeaderFormatAnalysisResult::UnknownProtocol
+    }
 }
 
 #[cfg(test)]
