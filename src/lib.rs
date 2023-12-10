@@ -5,7 +5,9 @@ use tun_tap::{Iface, Mode};
 use netconfig::Interface;
 //use ethernet::Ethernet2Header;
 //use pdu::EthernetPdu;
-use advmac::MacAddr6;   // used by pdu+netconfig
+use advmac::MacAddr6;
+use std::collections::HashMap;
+// used by pdu+netconfig
 use std::{thread, time::Duration, result::Result};
 
 extern crate pnet;
@@ -207,14 +209,14 @@ pub fn new_interface(macaddr: Option<MacAddr6>, dest_macaddr: Option<MacAddr6>) 
 }
 
 enum NClnpPdu<'a> {
-    Inactive(NFixedPartMiniForInactive<'a>, NDataPart<'a>),
-    NDataPDU {fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
+    Inactive { fixed_mini: NFixedPartMiniForInactive<'a>, data: NDataPart<'a> },
+    NDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
     // no segmentation, but reason for discard is mandatory
     ErrorReportPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, op: Option<NOptionsPart<'a>>, discard: NReasonForDiscardPart<'a>, data: Option<NDataPart<'a>> },
     // these are the same as DataPDU / DT PDU
-    EchoRequestPDU{ fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
-    EchoResponsePDU{ fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
-    MulticastDataPDU{ fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> }
+    EchoRequestPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
+    EchoResponsePDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
+    MulticastDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> }
 }
 
 struct NFixedPartMiniForInactive<'a> {
@@ -316,6 +318,133 @@ struct NDataPart<'a> {
     data: &'a [u8]
 }
 
+impl crate::NClnpPdu<'_> {
+    fn into_buf(&self, buffer: &mut [u8]) -> usize {
+        //TODO check if given buffer is really < MTU
+        match self {
+            Self::Inactive{fixed_mini, data} => {
+                buffer[0] = *fixed_mini.network_layer_protocol_identifier as u8;
+                //TOD optimize
+                for i in 0..data.data.len() {
+                    buffer[i+1] = data.data[i];
+                }
+                return 1 + data.data.len();
+            },
+            _ => { todo!(); }
+        }
+        //matches!(self, Self::Inactive { .. })
+    }
+}
+
+//TODO implement full NSAP
+struct Nsap {
+    authority: u16, // 49 = local network
+    area: u16,  //net (?)
+    sub_area: u16,  //subnet (?)
+    local_address: MacAddr6,    //TODO fix - this is of course not correct
+}
+
+struct Qos {
+    //TODO
+}
+
+struct NClnpService {
+    socket: RawPacketStream,
+    buffer: [u8; 1500],
+    serviced_nsaps: Vec<Nsap>,
+    known_hosts: HashMap<String, Nsap>,
+}
+
+impl NClnpService {
+    pub fn new(socket: RawPacketStream) -> NClnpService {
+        NClnpService {
+            socket: socket,
+            buffer: [0u8; 1500],
+            serviced_nsaps: vec![],
+            known_hosts: HashMap::new(),
+        }
+    }
+
+    // TODO serviced NSAP
+    // TODO fix parameters
+    pub fn add_serviced_nsap(&mut self, authority: u16, area: u16, sub_area: u16, remainder: MacAddr6) {
+        self.serviced_nsaps.push(Nsap {
+            authority: authority,
+            area: area,
+            sub_area: sub_area,
+            local_address: remainder,
+        })
+    }
+
+    // TODO serviced NSAP in subnet according to "expected services of subnet network service" or so (?)
+    pub fn add_serviced_subnet_nsap(&mut self, net: u16, sub_net: u16, macaddr: MacAddr6) {
+        self.add_serviced_nsap(49, net, sub_net, macaddr);
+    }
+
+    //TODO quick version - implement proper name lookup
+    pub fn resolve_nsap(&self, system_title: &str) -> Option<&Nsap> {
+        if let Some(address) = self.known_hosts.get(system_title) {
+            return Some(address);
+        } else {
+            return None;
+        }
+    }
+
+    //TODO quick version - implement proper name lookup
+    //TODO currently we use MAC access for "NSAP"
+    pub fn add_known_host(&mut self, system_title: String, nsap: &str) {
+        self.known_hosts.insert(system_title, Nsap {
+            authority: 49,
+            area: 1,
+            sub_area: 1,
+            local_address: parse_macaddr(nsap).expect("could not parse mac address"),
+        });
+    }
+
+    // TODO only inactive implemented
+    pub fn n_unitdata_request(
+        &mut self,
+        ns_source_address: &Nsap,
+        ns_destination_address: &Nsap,
+        ns_quality_of_service: &Qos,
+        ns_userdata: &[u8],
+        buffer: &[u8]
+    ) {
+        // check if we are on same Ethernet broadcast domain as destination
+        if can_use_inactive_subset(ns_source_address, ns_destination_address) {
+            // compose PDU(s)
+            let pdus = pdu_composition(true, ns_source_address, ns_destination_address, ns_quality_of_service, ns_userdata);
+            for pdu in pdus {
+                // send PDU(s)
+                let bytes = pdu.into_buf(&mut self.buffer);
+                self.socket.write(&buffer[0..bytes]).expect("could not write buffer into socket");
+            }
+            return;
+        }
+        todo!();
+    }
+}
+
+//TODO
+fn can_use_inactive_subset(ns_source_address: &Nsap, ns_destination_address: &Nsap) -> bool {
+    // TODO check if on same subnetwork (AKA in same Ethernet segment)
+    true
+}
+
+// 6.1
+// TODO WIP
+// TODO optimize - this function allocates CLNP PDUs for every call
+fn pdu_composition<'a>(inactive: bool, ns_source_address: &'a Nsap, ns_destination_address: &'a Nsap, ns_quality_of_service: &'a Qos, ns_userdata: &'a [u8]) -> Vec<NClnpPdu<'a>> {
+    if inactive {
+        return vec![NClnpPdu::Inactive {
+            fixed_mini: NFixedPartMiniForInactive { network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE },
+            data: NDataPart { data: ns_userdata }
+        }]
+    } else {
+        todo!();
+    }
+}
+
 enum HeaderFormatAnalysisResult {
     TooShortTooIdentify,
     FullProtocol,
@@ -351,7 +480,7 @@ mod tests {
 }
 
 // TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
-pub fn new_interface2(interface_name: &str, dest_macaddr: Option<MacAddr6>) -> String {
+pub fn new_interface2(interface_name: &str, dest_macaddr: Option<MacAddr6>, hosts: Vec<(&str, &str)>) -> String {
     let mut ps = RawPacketStream::new_with_ethertype(ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
     ps.bind_with_ethertype(interface_name, ETHER_TYPE_CLNP).expect("failed to bind to interface");
 
@@ -364,6 +493,15 @@ pub fn new_interface2(interface_name: &str, dest_macaddr: Option<MacAddr6>) -> S
     
     // dont need it anymore
     drop(iface_config);
+
+    // start up OSI network service
+    let mut ns = NClnpService::new(ps);
+    // set own/serviced NSAPs
+    ns.add_serviced_subnet_nsap(1, 1, macaddr);
+    // add known hosts
+    for host in hosts {
+        ns.add_known_host(host.0.to_owned(), host.1);   //TODO optimize clone
+    }
     
     // write frames
     if dest_macaddr.is_some() {
