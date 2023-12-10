@@ -432,27 +432,71 @@ impl NClnpService {
         });
     }
 
-    // TODO only inactive implemented
+    //TODO there are/can be multiple
+    pub fn get_serviced_nsap(&mut self) -> Option<&Nsap> {
+        return self.serviced_nsaps.get(0);
+    }
+
     pub fn n_unitdata_request(
+        &mut self,
+        ns_destination_title: &str,
+        ns_quality_of_service: &Qos,
+        ns_userdata: &[u8]
+    ) {
+        let get_serviced_nsap = self.get_serviced_nsap().expect("no serviced NSAPs").clone();
+        let dest_nsap = self.resolve_nsap(ns_destination_title).expect("cannot resolve destination host").clone();
+        self.n_unitdata_request_internal(
+            &get_serviced_nsap,
+            &dest_nsap,
+            &ns_quality_of_service,
+            ns_userdata
+        );
+    }
+
+    // TODO only inactive implemented
+    fn n_unitdata_request_internal(
         &mut self,
         ns_source_address: &Nsap,
         ns_destination_address: &Nsap,
         ns_quality_of_service: &Qos,
-        ns_userdata: &[u8],
-        buffer: &[u8]
+        ns_userdata: &[u8]
     ) {
         // check if we are on same Ethernet broadcast domain as destination
         if can_use_inactive_subset(ns_source_address, ns_destination_address) {
             // compose PDU(s)
             let pdus = pdu_composition(true, ns_source_address, ns_destination_address, ns_quality_of_service, ns_userdata);
             for pdu in pdus {
-                // send PDU(s)
-                let bytes = pdu.into_buf(&mut self.buffer);
-                self.socket.write(&buffer[0..bytes]).expect("could not write buffer into socket");
+                // send DLPDU (Ethernet frame header)
+                let pkt_out = etherparse::Ethernet2Header{
+                    destination: ns_destination_address.local_address.to_array(),
+                    source: ns_source_address.local_address.to_array(),
+                    ether_type: ETHER_TYPE_CLNP,
+                };
+                println!("writing DLPDU...");
+                let mut remainder = pkt_out.write_to_slice(&mut self.buffer).expect("failed writing DLPDU into buffer");
+                //pkt_out.write(&mut self.socket).expect("failed writing frame into socket");
+
+                // send NPDU (CLNP PDU)
+                println!("writing NPDU...");
+                let bytes = pdu.into_buf(&mut remainder);
+                self.socket.write(&self.buffer[0..bytes + 14]).expect("could not write buffer into socket");    //TODO +14 is not cleanly abtracted
+
+                println!("flushing DL...");
+                self.socket.flush().expect("failed to flush socket");
             }
             return;
         }
         todo!();
+    }
+
+    //TODO implement properly (PDU decomposition)
+    fn n_unitdata_indication(
+        ns_source_address: MacAddr6,
+        ns_destination_address: MacAddr6,
+        ns_quality_of_service: &Qos,
+        ns_userdata: &[u8]
+    ) {
+        println!("got CLNP packet: {:?}", NClnpPdu::from_buf(ns_userdata));
     }
 }
 
