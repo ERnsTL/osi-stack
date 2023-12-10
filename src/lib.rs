@@ -343,9 +343,27 @@ impl crate::NClnpPdu<'_> {
         }
         //matches!(self, Self::Inactive { .. })
     }
+
+    fn from_buf(buffer: &[u8]) -> NClnpPdu {
+        match buffer[0] {
+            NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL => {
+                todo!();
+            },
+            NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE => {
+                NClnpPdu::Inactive {
+                    fixed_mini: NFixedPartMiniForInactive { network_layer_protocol_identifier: &buffer[0] },
+                    data: NDataPart { data: &buffer[1..buffer.len()] }  //TODO note, we dont really know how long the data part is at this point
+                }
+            }
+            _ => {
+                todo!();
+            }
+        }
+    }
 }
 
 //TODO implement full NSAP
+#[derive(Clone)]
 struct Nsap {
     authority: u16, // 49 = local network
     area: u16,  //net (?)
