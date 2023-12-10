@@ -5,12 +5,15 @@ Goals:
 * Implement correct PDU composition function for Inactive Protocol subset.
 * Implement correct PDU decomposition function for Inactive Protocol subset.
 * Implement correct Header Analysis function for Inactive Protocol subset.
+* Check if Inactive Protocol subset should report errors - if ER bit is set, send an error report? But in 6.22 functions table it is not listed that error reports are mandatory for the Inactive subset.
 * Add "osi hosts.txt" support.
 * Add correct NSAP support <-> quick parsing of 49.1.1.macaddress
 * Add discovery of link-local hosts reachable via Ethernet.
 * Allow parallel receiving and sending via inner_read and inner_write structs.
 * What about ARP and DNS to find hosts on the network?
 * Correct abstraction and encapsulation of Data Link Layer instead of being built-in into network service.
+* Keeping track of connections DID (? TODO find it again)
+* Routing table dump as in https://datatracker.ietf.org/doc/rfc1574/
 ---
 04:
 * Change implementation to start of Non-Segmenting Protocol subset:
