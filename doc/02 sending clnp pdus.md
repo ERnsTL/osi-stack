@@ -10,22 +10,15 @@ Goal:
 * Add PDU decomposition function for Inactive Protocol subset.
 * Send NPDU (CLNP inactive protocol subset) instead of empty Ethernet frame.
 * Parse CLNP instead upon reception.
----
-03:
-* Change implementation to start of Non-Segmenting Protocol subset:
-* Add Echo Request function.
-* Add Echo Response function.
-* Add Error Reporting for everything else.
-* Send echo request, echo response.
----
-04:
-* Add full struct and decomposition of options part resp. parameter meanings.
-* Implement full protocol support.
 
 References:
 
 * https://www.itu.int/rec/T-REC-X.233/en specifically https://www.itu.int/rec/T-REC-X.233-199708-I/en
 * for NSAP syntax and semantics, multicast:  https://www.itu.int/rec/T-REC-X.213/en specifically https://www.itu.int/rec/T-REC-X.213-200110-I/en
+
+* Copied the full standard analysis to next document (03) to continue working on it.
+
+Document research:
 
 * 1 scope
 * 2 normative references
@@ -134,7 +127,36 @@ References:
 * annex A - PICS proforma
   * TODO
 
+
 ## Do
 
-...
+* For Inactive CLNP only a few clauses are really needed, that is good.
+* It is a nice that the implementation is pretty straightforward using the standards structure.
+* It seems unclear what the integration between "the expeted lower datalink protocol" and the network service is.
+* There seems to be no ARP. It seems, OSI pushes this function to a Directory instead of having a separate low-level layer 2/3 local resolution protocol (ARP).
+* Many datastructures are needed to parse the various protocol structs, even if they are not used yet. But then, the infrastructure is there already to build on.
 
+
+## Check
+
+* Can send and receive CLNP PDUs with the inactive protocol subset.
+* Simple lookup works.
+* Composition and decomposition is implemented in basic form.
+
+In terms of standard clauses:
+
+* Implemented 5.2 Inactive Network Layer Protocol Subset
+* 5.3.1 basic NSAP format
+* 5.3.2 network entity titles very basic in-memory hostsfile-like "resolution" of host-titles
+* 5.4 N-UNITDATA request and indication functions
+* 5.5 underlying service (data link) assumed implemented (raw sockets) but not abstracted yet
+* 6.22 checked what must be implemented for Inactive protocol subset
+* 6.1 minimal version of PDU composition function
+* 6.2 minimal version of PDU decomposition function
+* 6.3 most of Header analysics function for inactive protcol subset support
+* 7.1 - 7.7 data structures for fixed part, "mini fixed part" for inactive network protocol subset, address, segmentation, options, data part
+
+
+## Act
+
+* Nothing to do.
