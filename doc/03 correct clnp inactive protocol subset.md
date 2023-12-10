@@ -14,6 +14,7 @@ Goals:
 * Correct abstraction and encapsulation of Data Link Layer instead of being built-in into network service.
 * Keeping track of connections DID (? TODO find it again)
 * Routing table dump as in https://datatracker.ietf.org/doc/rfc1574/
+* Implementation of ES-IS protocol (subnetwork coordination? finding other hosts and routes?).
 ---
 04:
 * Change implementation to start of Non-Segmenting Protocol subset:
