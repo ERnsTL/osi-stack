@@ -208,6 +208,7 @@ pub fn new_interface(macaddr: Option<MacAddr6>, dest_macaddr: Option<MacAddr6>) 
     }
 }
 
+#[derive(Debug)]
 enum NClnpPdu<'a> {
     Inactive { fixed_mini: NFixedPartMiniForInactive<'a>, data: NDataPart<'a> },
     NDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
@@ -219,6 +220,7 @@ enum NClnpPdu<'a> {
     MulticastDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> }
 }
 
+#[derive(Debug)]
 struct NFixedPartMiniForInactive<'a> {
     network_layer_protocol_identifier: &'a u8
 }
@@ -227,6 +229,7 @@ struct NFixedPartMiniForInactive<'a> {
 const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL: u8 = 0b1000_0001;
 const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE: u8 = 0b0000_0000;
 
+#[derive(Debug)]
 struct NFixedPart<'a> {
     network_layer_protocol_identifier: &'a u8,
     length_indicator: &'a u8,
@@ -284,6 +287,7 @@ impl NFixedPart<'_> {
     }
 }
 
+#[derive(Debug)]
 struct NAddressPart<'a> {
     destination_address_length_indicator: &'a u8,
     destination_address: &'a [u8],
@@ -291,29 +295,34 @@ struct NAddressPart<'a> {
     source_address: &'a [u8]
 }
 
+#[derive(Debug)]
 struct NSegmentationPart<'a> {
     data_unit_identifier: &'a u16,
     segment_offset: &'a u16,
     total_length: &'a u16
 }
 
+#[derive(Debug)]
 struct NOptionsPart<'a> {
     params: &'a [NParameter<'a>]
 }
 
 /// only contained in NOptionsPart
 //TODO decomposition of these parameters
+#[derive(Debug)]
 struct NParameter<'a> {
     parameter_code: &'a u8,
     parameter_length: &'a u8,
     parameter_value: &'a [u8],
 }
 
+#[derive(Debug)]
 struct NReasonForDiscardPart<'a> {
     /// has format of a parameter from the options part
     param: &'a NParameter<'a>   //TODO enforce that here only parameter code "1100 0001" is allowed
 }
 
+#[derive(Debug)]
 struct NDataPart<'a> {
     data: &'a [u8]
 }
@@ -349,10 +358,14 @@ struct Qos {
 }
 
 struct NClnpService {
-    socket: RawPacketStream,
-    buffer: [u8; 1500],
+    // internal state
     serviced_nsaps: Vec<Nsap>,
     known_hosts: HashMap<String, Nsap>,
+
+    // underlying data link service
+    //TODO kind of - package that
+    socket: RawPacketStream,
+    buffer: [u8; 1500],
 }
 
 impl NClnpService {
@@ -480,7 +493,7 @@ mod tests {
 }
 
 // TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
-pub fn new_interface2(interface_name: &str, dest_macaddr: Option<MacAddr6>, hosts: Vec<(&str, &str)>) -> String {
+pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &str)>) -> String {
     let mut ps = RawPacketStream::new_with_ethertype(ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
     ps.bind_with_ethertype(interface_name, ETHER_TYPE_CLNP).expect("failed to bind to interface");
 
