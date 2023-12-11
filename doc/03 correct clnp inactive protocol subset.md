@@ -2,6 +2,7 @@
 
 Goals:
 
+* Correct abstraction and encapsulation of Data Link Layer (Subnetwork Access Protocol) instead of being built-in into network service.
 * Implement correct PDU composition function for Inactive Protocol subset.
 * Implement correct PDU decomposition function for Inactive Protocol subset.
 * Implement correct Header Analysis function for Inactive Protocol subset.
@@ -11,7 +12,6 @@ Goals:
 * Add discovery of link-local hosts reachable via Ethernet.
 * Allow parallel receiving and sending via inner_read and inner_write structs.
 * What about ARP and DNS to find hosts on the network?
-* Correct abstraction and encapsulation of Data Link Layer instead of being built-in into network service.
 * Keeping track of connections DID (? TODO find it again)
 * Routing table dump as in https://datatracker.ietf.org/doc/rfc1574/
 * Implementation of ES-IS protocol (subnetwork coordination? finding other hosts and routes?).
@@ -29,7 +29,9 @@ Goals:
 * Add full struct and decomposition of options part resp. parameter meanings.
 * Implement full protocol support.
 
-Document research:
+Document research in X.233:
+Goal:  list of requirements (must, shall, may) for implementation work packages
+Goal:  list of tests (PICS)
 
 * 1 scope
 * 2 normative references
@@ -137,3 +139,10 @@ Document research:
   * TODO
 * annex A - PICS proforma
   * TODO
+
+## Do
+
+* Observation that Linux delivers us more bytes than the DL / Ethernet frame has. For example 60 bytes instead of 14 bytes Ethernet2 header + CLNP Inactive subset header + few bytes test data. Not sure if this is an artefact of the Rust library or Linux behavior. Should get sorted out by Transport protocol parsing, which includes a header length, I hope.
+* Observation about the SNPA = der point of connection to the network AKA the Switchport on the local subnet, where Subnet is not in IPv4/6 meaning like a /24 subnet but OSI means the local Ethernet bridging domain on DL layer.
+  * Read the introduction to ISO 9542 ES-IS, then it becomes clear.
+  * In the end, this whole OSI thing is always about delivery of the requested payload + metainformation to and from the SNPA.
