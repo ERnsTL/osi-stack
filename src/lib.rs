@@ -603,7 +603,7 @@ pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &
     loop {
         let mut buffer = [0u8; 1500];
         println!("reading frame...");
-        ps.read(&mut buffer).unwrap();
+        let num_bytes = ps.read(&mut buffer).expect("could not read DL frame from socket into buffer");
         //println!("got frame: {}", buffer.to_hex(24));
         
         // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
@@ -631,7 +631,7 @@ pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &
             MacAddr6::from(eth_header.source()),
             MacAddr6::from(eth_header.destination()),
             &qos,
-            &buffer[0+14..buffer.len()]
+            &buffer[0+eth_header.slice().len() .. num_bytes]    //TODO plus VLAN 802.11q (?) header, if present
         );
 
         //let network_slice = &buffer[eth_header.slice().len() + vlan_len .. read_bytes];
