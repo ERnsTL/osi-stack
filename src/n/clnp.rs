@@ -1,16 +1,15 @@
-use std::{io::{Read, Write}, collections::HashMap};
+use std::collections::HashMap;
 use advmac::MacAddr6;
-use afpacket::sync::RawPacketStream;
-use etherparse::Ethernet2Header;
 
 use super::{Nsap, Qos};
+use crate::sn::{SubnetworkService, self};
 
 pub fn parse_macaddr(instr: &str) -> Result<MacAddr6, advmac::ParseError> {
     MacAddr6::parse_str(instr)
 }
 
 #[derive(Debug)]
-enum NClnpPdu<'a> {
+pub enum Pdu<'a> {
     Inactive { fixed_mini: NFixedPartMiniForInactive<'a>, data: NDataPart<'a> },
     NDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
     // no segmentation, but reason for discard is mandatory
@@ -128,8 +127,8 @@ struct NDataPart<'a> {
     data: &'a [u8]
 }
 
-impl NClnpPdu<'_> {
-    fn into_buf(&self, buffer: &mut [u8]) -> usize {
+impl Pdu<'_> {
+    pub fn into_buf(&self, buffer: &mut [u8]) -> usize {
         //TODO check if given buffer is really < MTU
         match self {
             Self::Inactive{fixed_mini, data} => {
@@ -145,13 +144,13 @@ impl NClnpPdu<'_> {
         //matches!(self, Self::Inactive { .. })
     }
 
-    fn from_buf(buffer: &[u8]) -> NClnpPdu {
+    pub fn from_buf(buffer: &[u8]) -> Pdu {
         match buffer[0] {
             NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL => {
                 todo!();
             },
             NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE => {
-                NClnpPdu::Inactive {
+                Pdu::Inactive {
                     fixed_mini: NFixedPartMiniForInactive { network_layer_protocol_identifier: &buffer[0] },
                     data: NDataPart { data: &buffer[1..buffer.len()] }  //TODO note, we dont really know how long the data part is at this point
                 }
@@ -168,17 +167,14 @@ pub(crate) struct Service {
     serviced_nsaps: Vec<Nsap>,
     known_hosts: HashMap<String, Nsap>,
 
-    // underlying data link service
-    //TODO kind of - package that
-    socket: RawPacketStream,
-    buffer: [u8; 1500],
+    // underlying service assumed by the protocol = subnet service on data link layer
+    sn_service: sn::ethernet::Service,
 }
 
 impl super::NetworkService for Service {
-    fn new(socket: RawPacketStream) -> Service {
+    fn new(sn_service: sn::ethernet::Service) -> Service {
         Service {
-            socket: socket,
-            buffer: [0u8; 1500],
+            sn_service: sn_service,
             serviced_nsaps: vec![],
             known_hosts: HashMap::new(),
         }
@@ -248,7 +244,7 @@ impl super::NetworkService for Service {
         ns_quality_of_service: &Qos,
         ns_userdata: &[u8]
     ) {
-        println!("got CLNP packet: {:?}", NClnpPdu::from_buf(ns_userdata));
+        println!("got CLNP packet: {:?}", Pdu::from_buf(ns_userdata));
     }
 }
 
@@ -266,23 +262,14 @@ impl Service {
             // compose PDU(s)
             let pdus = pdu_composition(true, ns_source_address, ns_destination_address, ns_quality_of_service, ns_userdata);
             for pdu in pdus {
-                // send DLPDU (Ethernet frame header)
-                let pkt_out = Ethernet2Header{
-                    destination: ns_destination_address.local_address.to_array(),
-                    source: ns_source_address.local_address.to_array(),
-                    ether_type: crate::n::ETHER_TYPE_CLNP,
-                };
-                println!("writing DLPDU...");
-                let mut remainder = pkt_out.write_to_slice(&mut self.buffer).expect("failed writing DLPDU into buffer");
-                //pkt_out.write(&mut self.socket).expect("failed writing frame into socket");
-
-                // send NPDU (CLNP PDU)
-                println!("writing NPDU...");
-                let bytes = pdu.into_buf(&mut remainder);
-                self.socket.write(&self.buffer[0..bytes + 14]).expect("could not write buffer into socket");    //TODO +14 is not cleanly abtracted
-
-                println!("flushing DL...");
-                self.socket.flush().expect("failed to flush socket");
+                let bla = [1u8];
+                self.sn_service.sn_unitdata_request(
+                    ns_source_address.local_address,
+                    ns_destination_address.local_address,
+                    sn::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
+                    &pdu    //TODO not perfect abstraction, but should save us a memcpy
+                );
+                self.sn_service.flush();
             }
             return;
         }
@@ -299,9 +286,9 @@ fn can_use_inactive_subset(ns_source_address: &Nsap, ns_destination_address: &Ns
 // 6.1
 // TODO WIP
 // TODO optimize - this function allocates CLNP PDUs for every call
-fn pdu_composition<'a>(inactive: bool, ns_source_address: &'a Nsap, ns_destination_address: &'a Nsap, ns_quality_of_service: &'a Qos, ns_userdata: &'a [u8]) -> Vec<NClnpPdu<'a>> {
+fn pdu_composition<'a>(inactive: bool, ns_source_address: &'a Nsap, ns_destination_address: &'a Nsap, ns_quality_of_service: &'a Qos, ns_userdata: &'a [u8]) -> Vec<Pdu<'a>> {
     if inactive {
-        return vec![NClnpPdu::Inactive {
+        return vec![Pdu::Inactive {
             fixed_mini: NFixedPartMiniForInactive { network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE },
             data: NDataPart { data: ns_userdata }
         }]

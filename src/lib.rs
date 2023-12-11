@@ -1,4 +1,4 @@
-use etherparse::{ether_type, SingleVlanHeaderSlice, Ethernet2Header};
+use etherparse::{ether_type, SingleVlanHeaderSlice};
 use netconfig::Interface;
 use advmac::MacAddr6;
 use std::{thread, time::Duration};
@@ -7,7 +7,7 @@ use std::io::Read;
 
 mod n;
 mod sn;
-use crate::n::{Qos, NetworkService};
+use crate::{n::{Qos, NetworkService}, sn::SubnetworkService};
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
@@ -34,13 +34,14 @@ pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &
 
     // get MAC address
     let macaddr = iface_config.hwaddress().expect("could not get hardware address of interface");
-    println!("got DLSAP: {}", macaddr);
+    println!("got SNPA: {}", macaddr);
 
     // dont need it anymore
     drop(iface_config);
 
     // start up OSI network service
-    let mut ns = n::clnp::Service::new(ps.clone());
+    let sn = sn::ethernet::Service::new(ps.clone());
+    let mut ns = n::clnp::Service::new(sn);
     // set own/serviced NSAPs
     ns.add_serviced_subnet_nsap(1, 1, macaddr);
     // add known hosts
