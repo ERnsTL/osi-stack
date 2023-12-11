@@ -7,7 +7,7 @@ use std::io::Read;
 
 mod n;
 mod sn;
-use crate::n::clnp::Qos;
+use crate::n::{Qos, NetworkService};
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
@@ -26,8 +26,8 @@ mod tests {
 
 // TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
 pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &str)>) -> String {
-    let mut ps = RawPacketStream::new_with_ethertype(n::numbers::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
-    ps.bind_with_ethertype(interface_name, n::numbers::ETHER_TYPE_CLNP).expect("failed to bind to interface");
+    let mut ps = RawPacketStream::new_with_ethertype(sn::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
+    ps.bind_with_ethertype(interface_name, sn::ETHER_TYPE_CLNP).expect("failed to bind to interface");
 
     // configure interface
     let iface_config = Interface::try_from_name(interface_name).expect("could not look up interface by name");
@@ -40,7 +40,7 @@ pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &
     drop(iface_config);
 
     // start up OSI network service
-    let mut ns = n::clnp::NClnpService::new(ps.clone());
+    let mut ns = n::clnp::Service::new(ps.clone());
     // set own/serviced NSAPs
     ns.add_serviced_subnet_nsap(1, 1, macaddr);
     // add known hosts
@@ -97,7 +97,7 @@ pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &
         //TODO this method will need &mut self at some point, but this will create 2 borrows - one for read and one for write
         //TODO must enable 2 threads working inside NClnpService.
         //TODO modify to have NClnpService .read and .write inner parts - only these get borrowed. And these 2 only lock the shared host lists etc. when really needed.
-        n::clnp::NClnpService::n_unitdata_indication(
+        n::clnp::Service::n_unitdata_indication(
             MacAddr6::from(eth_header.source()),
             MacAddr6::from(eth_header.destination()),
             &qos,
