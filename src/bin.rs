@@ -1,4 +1,3 @@
-use advmac::MacAddr6;
 use std::env;
 
 pub fn main() {

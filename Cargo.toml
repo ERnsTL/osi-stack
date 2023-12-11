@@ -22,10 +22,8 @@ afpacket = {git = "https://github.com/ERnsTL/afpacket.git" }
 #rustix = { version = "0.38.28", default-features = false, features = ["net"] }
 
 
-
-
 # TODO anyone offering Windows TAP? And MacOS TAP (feth)?
-tun-tap = { version = "0.1.4", default-features = false }  # no tokio   # features = ["libc"] would add set_nonblocking() feature
+#tun-tap = { version = "0.1.4", default-features = false }  # no tokio   # features = ["libc"] would add set_nonblocking() feature
 #tunio = "0.3.0"
 
 netconfig = "0.4.0" # TODO this does a lot of things we dont need (IP-related stuff)
@@ -36,10 +34,10 @@ netconfig = "0.4.0" # TODO this does a lot of things we dont need (IP-related st
 etherparse = "0.13.0"
 advmac = "1.0.3"    # used by pdu+netconfig
 # alternative (fuzzed, datalink+network+transport layer development possible, Linux Windows MacOS):  https://crates.io/crates/pnet_datalink
-[dependencies.pnet]
-version = "0.34.0"
+#[dependencies.pnet]
+#version = "0.34.0"
 
-# TODO only lib needs the dependencies
+# TODO only lib needs the dependencies - optimize so that binaries dont also have them included
 
 [lib]
 name = "osistack"
