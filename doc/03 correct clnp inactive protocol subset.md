@@ -16,6 +16,7 @@ Goals:
 * Routing table dump as in https://datatracker.ietf.org/doc/rfc1574/
 * Implementation of ES-IS protocol (subnetwork coordination? finding other hosts and routes?).
 * Do End systems (ES) also send Hello's to each other? What do they do when they receive such and no Intermediate System (IS AKA Router) is present?
+  * Yes, they do -> ISO 9542 availabe for free via ISO "Publicly Available Standards".
 ---
 04:
 * Change implementation to start of Non-Segmenting Protocol subset:
