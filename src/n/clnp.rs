@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use advmac::MacAddr6;
 
 use super::{Nsap, Qos};
-use crate::sn::{SubnetworkService, self};
+use crate::dl::{SubnetworkService, self};
 
 pub fn parse_macaddr(instr: &str) -> Result<MacAddr6, advmac::ParseError> {
     MacAddr6::parse_str(instr)
@@ -168,11 +168,11 @@ pub(crate) struct Service {
     known_hosts: HashMap<String, Nsap>,
 
     // underlying service assumed by the protocol = subnet service on data link layer
-    sn_service: sn::ethernet::Service,
+    sn_service: dl::ethernet::Service,
 }
 
 impl super::NetworkService for Service {
-    fn new(sn_service: sn::ethernet::Service) -> Service {
+    fn new(sn_service: dl::ethernet::Service) -> Service {
         Service {
             sn_service: sn_service,
             serviced_nsaps: vec![],
@@ -266,7 +266,7 @@ impl Service {
                 self.sn_service.sn_unitdata_request(
                     ns_source_address.local_address,
                     ns_destination_address.local_address,
-                    sn::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
+                    dl::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
                     &pdu    //TODO not perfect abstraction, but should save us a memcpy
                 );
                 self.sn_service.flush();

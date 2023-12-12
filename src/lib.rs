@@ -6,8 +6,8 @@ use afpacket::sync::RawPacketStream;
 use std::io::Read;
 
 mod n;
-mod sn;
-use crate::{n::{Qos, NetworkService}, sn::SubnetworkService};
+mod dl;
+use crate::{n::{Qos, NetworkService}, dl::SubnetworkService};
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
@@ -26,8 +26,8 @@ mod tests {
 
 // TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
 pub fn new(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &str)>) {
-    let mut ps = RawPacketStream::new_with_ethertype(sn::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
-    ps.bind_with_ethertype(interface_name, sn::ETHER_TYPE_CLNP).expect("failed to bind to interface");
+    let mut ps = RawPacketStream::new_with_ethertype(dl::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
+    ps.bind_with_ethertype(interface_name, dl::ETHER_TYPE_CLNP).expect("failed to bind to interface");
 
     // configure interface
     let iface_config = Interface::try_from_name(interface_name).expect("could not look up interface by name");
@@ -40,7 +40,7 @@ pub fn new(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &str)>) {
     drop(iface_config);
 
     // start up OSI network service
-    let sn = sn::ethernet::Service::new(ps.clone());
+    let sn = dl::ethernet::Service::new(ps.clone());
     let mut ns = n::clnp::Service::new(sn);
     // set own/serviced NSAPs
     ns.add_serviced_subnet_nsap(1, 1, macaddr);

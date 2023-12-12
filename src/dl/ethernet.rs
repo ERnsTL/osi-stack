@@ -33,7 +33,7 @@ impl SubnetworkService for Service {
         let pkt_out = Ethernet2Header{
             destination: sn_destination_address.to_array(),
             source: sn_source_address.to_array(),
-            ether_type: crate::sn::ETHER_TYPE_CLNP,
+            ether_type: crate::dl::ETHER_TYPE_CLNP,
         };
         println!("writing SNSDU...");
         let mut remainder = pkt_out.write_to_slice(&mut self.buffer).expect("failed writing SNSDU into buffer");
