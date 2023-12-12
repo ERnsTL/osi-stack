@@ -6,6 +6,7 @@ pub mod ethernet;
 pub const ETHER_TYPE_CLNP: u16 = 0x8872;  // as per https://datatracker.ietf.org/doc/html/draft-kaplan-isis-ext-eth-ip-clns-2-00
 
 // is a subnetwork-dependent QoS code, different from the OSI NS QoS codes
+// TODO is ^ true?
 pub struct Qos {}
 
 pub trait SubnetworkService {
