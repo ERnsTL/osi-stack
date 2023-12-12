@@ -2,7 +2,24 @@
 
 Goals:
 
+* Move CLNP and Ethernet source code into modules.
+* Add Network Service trait which the CLNP implements in order to make the Network Service exchangeable - since IS-IS is also on the network layer.
 * Correct abstraction and encapsulation of Data Link Layer (Subnetwork Access Protocol) instead of being built-in into network service.
+
+* TODO request and indication between NS and SN - who requests and who gets the indication? top to bottom or bottom to top?
+* TODO the subnetwork service must be an active component (thread) blocking on socket.read() and being able to propagate up the stack.
+  * read up is active
+* TODO the network service is called by the upper layers "please deliver this", so it can be a dead method/function.
+  * push down is active
+* TODO certain services need to be active in and of themselves to check on timers, purge routing tables ...
+  * services do periodic tasks themselves
+-> 2 threads per layer.
+* and we will need mailboxes - shared memory handover of PDUs.
+   * down the stack we package &upperpdu into larger PDU and pass it & down the stack. Upon write() the kernel makes a copy and returns the buffer.
+   * up the stack we trim things from the buffer - by creating an ever smaller view/slice into the layer2 buffer. The buffer remains in ownership of the SubnetworkService. Arriving in destination layer, the layer makes a copy and returns the buffer.
+* X.233 clause 8.4 says that the requests go down the stack and indications go back up the stack.
+* should the SNDCF dissect the Ethernet header or the SN Service? AKA who are the parameters in the Service Primitive for? Request or Indication?
+
 * Implement correct PDU composition function for Inactive Protocol subset.
 * Implement correct PDU decomposition function for Inactive Protocol subset.
 * Implement correct Header Analysis function for Inactive Protocol subset.
@@ -146,3 +163,6 @@ Goal:  list of tests (PICS)
 * Observation about the SNPA = der point of connection to the network AKA the Switchport on the local subnet, where Subnet is not in IPv4/6 meaning like a /24 subnet but OSI means the local Ethernet bridging domain on DL layer.
   * Read the introduction to ISO 9542 ES-IS, then it becomes clear.
   * In the end, this whole OSI thing is always about delivery of the requested payload + metainformation to and from the SNPA.
+* The X.233 CLNP Specification in 5.5 Underlying service assumed by the protocol says that: "It is intended that this protocol be capable of operating over connectionless-mode services derived from a wide variety of real subnetworks and data links. Therefore, in order to simplify the specification of the protocol, its operation is defined (in clause 6) with respect to an abstract “underlying subnetwork service” rather than any particular real subnetwork service."
+  * So the Subnetwork Service is situated on the Data Link Layer.
+  * Ethernet provides a Subnet Service and is located on the Data Link Layer.
