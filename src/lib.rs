@@ -25,7 +25,7 @@ mod tests {
 }
 
 // TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
-pub fn new_interface2(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &str)>) -> String {
+pub fn new(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &str)>) {
     let mut ps = RawPacketStream::new_with_ethertype(sn::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
     ps.bind_with_ethertype(interface_name, sn::ETHER_TYPE_CLNP).expect("failed to bind to interface");
 

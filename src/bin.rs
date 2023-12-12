@@ -31,7 +31,7 @@ pub fn main() {
     }
 
     // engage
-    osistack::new_interface2(interface_name, dest_host, hosts);
+    osistack::new(interface_name, dest_host, hosts);
 }
 
 // TODO add protocol server or should each application create its own interface?
