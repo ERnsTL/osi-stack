@@ -1,4 +1,9 @@
 use std::env;
+use std::thread;
+use std::time::Duration;
+
+use osistack::n;
+use osistack::n::NetworkService;
 
 pub fn main() {
     //println!("{}", add(1, 1));
@@ -30,8 +35,24 @@ pub fn main() {
         }
     }
 
-    // engage
-    osistack::new(interface_name, dest_host, hosts);
+    // set up network
+    let mut ns = osistack::new(interface_name, hosts);
+
+    // application logic
+
+    // send request to other host
+    let qos = n::Qos{};
+    loop {
+        print!("sending packet...");
+        ns.n_unitdata_request(
+            dest_host,  //TODO change to proper, which is NSAP address - there is no echo service on DL layer
+            &qos,
+            r"test".as_bytes()
+        );
+        println!("done");
+
+        thread::sleep(Duration::from_secs(2));
+    }
 }
 
 // TODO add protocol server or should each application create its own interface?
