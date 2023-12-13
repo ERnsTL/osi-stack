@@ -6,8 +6,6 @@ use osistack::n;
 use osistack::n::NetworkService;
 
 pub fn main() {
-    //println!("{}", add(1, 1));
-
     let args: Vec<_> = env::args().collect();
     if args.len() < 3 {
         panic!("usage: {} <interface-name> <destination-host> [<host-name> <mac-address>]", args[0]);
