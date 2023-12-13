@@ -24,4 +24,5 @@ pub trait SubnetworkService {
         sn_userdata: &crate::n::clnp::Pdu
     );
     fn flush(&mut self);
+    fn sn_unitdata_indication_reader(&mut self);
 }
