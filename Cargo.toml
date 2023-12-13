@@ -37,6 +37,9 @@ advmac = "1.0.3"    # used by pdu+netconfig
 #[dependencies.pnet]
 #version = "0.34.0"
 
+# Inter-Layer communication
+rtrb = "0.3.0"
+
 # TODO only lib needs the dependencies - optimize so that binaries dont also have them included
 
 [lib]
