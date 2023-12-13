@@ -1,13 +1,9 @@
-use etherparse::{ether_type, SingleVlanHeaderSlice};
 use netconfig::Interface;
-use advmac::MacAddr6;
-use std::{thread, time::Duration};
 use afpacket::sync::RawPacketStream;
-use std::io::Read;
 
-mod n;
+pub mod n;
 mod dl;
-use crate::{n::{Qos, NetworkService}, dl::SubnetworkService};
+use crate::{n::NetworkService, dl::SubnetworkService};
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
@@ -25,7 +21,7 @@ mod tests {
 }
 
 // TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
-pub fn new(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &str)>) {
+pub fn new(interface_name: &str, hosts: Vec<(&str, &str)>) -> n::clnp::Service {
     let mut ps = RawPacketStream::new_with_ethertype(dl::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
     ps.bind_with_ethertype(interface_name, dl::ETHER_TYPE_CLNP).expect("failed to bind to interface");
 
@@ -40,7 +36,8 @@ pub fn new(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &str)>) {
     drop(iface_config);
 
     // start up OSI network service
-    let sn = dl::ethernet::Service::new(ps);
+    let mut sn = dl::ethernet::Service::new(ps);
+    sn.run();
     let mut ns = n::clnp::Service::new(sn);
     // set own/serviced NSAPs
     ns.add_serviced_subnet_nsap(1, 1, macaddr);
@@ -49,32 +46,5 @@ pub fn new(interface_name: &str, dest_host: &str, hosts: Vec<(&str, &str)>) {
         ns.add_known_host(host.0.to_owned(), host.1);   //TODO optimize clone
     }
 
-    // send request to other host
-    let qos = Qos{};
-    let dest_host2 = dest_host.to_owned();  // clone in order to give it the thread
-    let pinger = thread::spawn(move || {
-        let dest_host3 = dest_host2.as_str();
-        loop {
-            print!("sending packet...");
-            ns.n_unitdata_request(
-                dest_host3,
-                &qos,
-                r"test".as_bytes()
-            );
-            println!("done");
-
-            thread::sleep(Duration::from_secs(2));
-        }
-    });
-
-    // SNDCF (subnetwork-dependent convergence function)
-    let sndcf = thread::spawn(move || {
-        //TODO change to use network service
-        //TODO currently it does not have that feature
-        sn.sn_unitdata_indication_reader();
-    });
-
-    // will never happen, hit Ctrl+C
-    pinger.join();
-    sndcf.join();
+    return ns;
 }

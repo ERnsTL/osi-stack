@@ -1,4 +1,4 @@
-use std::io::{Write, Read};
+use std::{io::{Write, Read}, thread};
 
 use advmac::MacAddr6;
 use afpacket::sync::RawPacketStream;
@@ -54,43 +54,62 @@ impl SubnetworkService for Service {
         self.socket.flush().expect("failed to flush my own socket!");
     }
 
-    fn sn_unitdata_indication_reader(&mut self) {
-        let qos = n::Qos{};
-        loop {
-            let mut buffer = [0u8; 1500];
-            println!("reading frame...");
-            let num_bytes = self.socket.read(&mut buffer).expect("could not read DL frame from socket into buffer");
+    fn sn_unitdata_indication(
+        sn_source_address: MacAddr6,
+        sn_destination_address: MacAddr6,
+        sn_quality_of_service: &Qos,
+        sn_userdata: &[u8]
+    ) {
+        let n_quality_of_service = n::Qos{}; //TODO from sn_quality_of_service
+        //TODO the source and destination addresses should probably also be converted to NSAPs for the N layer protocol
 
-            // send up the stack to Subnetwork Service as SN-UNITDATA Indication
-            //sn.sn_unitdate_indication()
+        // forward up from DL to N layer
+        //TODO this method will need &mut self at some point, but this will create 2 borrows - one for read and one for write
+        //TODO must enable 2 threads working inside NClnpService.
+        //TODO modify to have NClnpService .read and .write inner parts - only these get borrowed. And these 2 only lock the shared host lists etc. when really needed.
+        n::clnp::Service::n_unitdata_indication(
+            sn_source_address,
+            sn_destination_address,
+            &n_quality_of_service,
+            sn_userdata
+        );
+    }
 
-            // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
-            let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(&buffer).expect("could not parse Ethernet2 header");
-            println!("destination: {:x?}  source: {:x?}  ethertype: 0x{:04x}", eth_header.destination(), eth_header.source(), eth_header.ether_type());
-            let mut vlan_len: usize = 0;
-            match eth_header.ether_type() {
-                ether_type::VLAN_TAGGED_FRAME | ether_type::PROVIDER_BRIDGING | ether_type::VLAN_DOUBLE_TAGGED_FRAME => {
-                    let vlan_header = SingleVlanHeaderSlice::from_slice(&buffer[eth_header.slice().len()-1..buffer.len()-1]).expect("could not parse single VLAN header");
-                    println!("vlan: {:?}", vlan_header);
-                    vlan_len = vlan_header.slice().len();
-                    //TODO handle what comes after vlan
-                },
-                ether_type::IPV6 => { println!("{}", "got ipv6, ignoring"); }
-                ether_type::IPV4 => { println!("{}", "got ipv4, ignoring"); }
-                ETHER_TYPE_CLNP => { println!("ah, got CLNP - feel warmly welcome!"); }
-                _ => { println!("{}", "got unknown, discarding"); }
+    // read SN-UNITDATA Indications from the socket
+    fn run(&mut self) {
+        let mut socket = self.socket.clone();
+        let _ = thread::spawn(move || {
+            let qos = Qos{};
+            loop {
+                let mut buffer = [0u8; 1500];
+                println!("reading frame...");
+                let num_bytes = socket.read(&mut buffer).expect("could not read DL frame from socket into buffer");
+
+                // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
+                let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(&buffer).expect("could not parse Ethernet2 header");
+                println!("destination: {:x?}  source: {:x?}  ethertype: 0x{:04x}", eth_header.destination(), eth_header.source(), eth_header.ether_type());
+                let mut vlan_len: usize = 0;
+                match eth_header.ether_type() {
+                    ether_type::VLAN_TAGGED_FRAME | ether_type::PROVIDER_BRIDGING | ether_type::VLAN_DOUBLE_TAGGED_FRAME => {
+                        let vlan_header = SingleVlanHeaderSlice::from_slice(&buffer[eth_header.slice().len()-1..buffer.len()-1]).expect("could not parse single VLAN header");
+                        println!("vlan: {:?}", vlan_header);
+                        vlan_len = vlan_header.slice().len();
+                        //TODO handle what comes after vlan
+                    },
+                    ether_type::IPV6 => { println!("{}", "got ipv6, ignoring"); }
+                    ether_type::IPV4 => { println!("{}", "got ipv4, ignoring"); }
+                    ETHER_TYPE_CLNP => { println!("ah, got CLNP - feel warmly welcome!"); }
+                    _ => { println!("{}", "got unknown, discarding"); }
+                }
+
+                // send up the stack to Subnetwork Service as SN-UNITDATA Indication
+                Self::sn_unitdata_indication(
+                    MacAddr6::from(eth_header.source()),
+                    MacAddr6::from(eth_header.destination()),
+                    &qos,
+                    &buffer[0+eth_header.slice().len() .. num_bytes]    //TODO plus VLAN 802.11q (?) header, if present
+                );
             }
-
-            // forward up from DL to N layer
-            //TODO this method will need &mut self at some point, but this will create 2 borrows - one for read and one for write
-            //TODO must enable 2 threads working inside NClnpService.
-            //TODO modify to have NClnpService .read and .write inner parts - only these get borrowed. And these 2 only lock the shared host lists etc. when really needed.
-            n::clnp::Service::n_unitdata_indication(
-                MacAddr6::from(eth_header.source()),
-                MacAddr6::from(eth_header.destination()),
-                &qos,
-                &buffer[0+eth_header.slice().len() .. num_bytes]    //TODO plus VLAN 802.11q (?) header, if present
-            );
-        }
+        });
     }
 }

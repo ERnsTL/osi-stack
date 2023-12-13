@@ -162,7 +162,7 @@ impl Pdu<'_> {
     }
 }
 
-pub(crate) struct Service {
+pub struct Service {
     // internal state
     serviced_nsaps: Vec<Nsap>,
     known_hosts: HashMap<String, Nsap>,

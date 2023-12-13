@@ -25,13 +25,13 @@ pub trait NetworkService {
 
 //TODO implement full NSAP
 #[derive(Clone)]
-pub(crate) struct Nsap {
+pub struct Nsap {
     authority: u16, // 49 = local network
     area: u16,  //net (?)
     sub_area: u16,  //subnet (?)
     local_address: MacAddr6,    //TODO fix - this is of course not correct
 }
 
-pub(crate) struct Qos {
+pub struct Qos {
     //TODO
 }
