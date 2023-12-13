@@ -6,6 +6,9 @@ Goals:
 * Add Network Service trait which the CLNP implements in order to make the Network Service exchangeable - since IS-IS is also on the network layer.
 * Correct abstraction and encapsulation of Data Link Layer (Subnetwork Access Protocol) instead of being built-in into network service.
 
+* TODO X.213 Introduction "Any particular subnetwork may or may not support the OSI Network Service. The OSI Network Service may be
+provided by a combination of one or more subnetworks and optional additional functions between or outside these
+subnetworks."
 * TODO request and indication between NS and SN - who requests and who gets the indication? top to bottom or bottom to top?
 * TODO the subnetwork service must be an active component (thread) blocking on socket.read() and being able to propagate up the stack.
   * read up is active
