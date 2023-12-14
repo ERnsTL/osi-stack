@@ -4,12 +4,11 @@ Goals:
 
 * Move CLNP and Ethernet source code into modules.
 * Add Network Service trait which the CLNP implements in order to make the Network Service exchangeable - since IS-IS is also on the network layer.
-* Correct abstraction and encapsulation of Data Link Layer (Subnetwork Access Protocol) instead of being built-in into network service.
+* Correct abstraction and encapsulation of Data Link Layer (Subnetwork Service) instead of being built-in into network service.
+* Request and indication between NS and SN - request for outgoing, indications for incoming.
+  * X.233 clause 8.4 says that the requests go down the stack and indications go back up the stack.
+* Pull up NS and SN protocol support and internal architecture by implementing an incomplete version of Echo Request and Echo Response.
 
-* TODO X.213 Introduction "Any particular subnetwork may or may not support the OSI Network Service. The OSI Network Service may be
-provided by a combination of one or more subnetworks and optional additional functions between or outside these
-subnetworks."
-* TODO request and indication between NS and SN - who requests and who gets the indication? top to bottom or bottom to top?
 * TODO the subnetwork service must be an active component (thread) blocking on socket.read() and being able to propagate up the stack.
   * read up is active
 * TODO the network service is called by the upper layers "please deliver this", so it can be a dead method/function.
@@ -20,7 +19,9 @@ subnetworks."
 * and we will need mailboxes - shared memory handover of PDUs.
    * down the stack we package &upperpdu into larger PDU and pass it & down the stack. Upon write() the kernel makes a copy and returns the buffer.
    * up the stack we trim things from the buffer - by creating an ever smaller view/slice into the layer2 buffer. The buffer remains in ownership of the SubnetworkService. Arriving in destination layer, the layer makes a copy and returns the buffer.
-* X.233 clause 8.4 says that the requests go down the stack and indications go back up the stack.
+* TODO X.213 Introduction "Any particular subnetwork may or may not support the OSI Network Service. The OSI Network Service may be
+provided by a combination of one or more subnetworks and optional additional functions between or outside these
+subnetworks."
 * should the SNDCF dissect the Ethernet header or the SN Service? AKA who are the parameters in the Service Primitive for? Request or Indication?
 * add protocol server to be contacted via library and unix socket or should each application create its own stack? well, the network layer handles the network protocol for the whole system and we cannot have 1,2,3,5,10 sockets all bound to the Ethernet interface, each receiving the same packets and handling them x times.
 
