@@ -21,7 +21,7 @@ mod tests {
 }
 
 // TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
-pub fn new(interface_name: &str, hosts: Vec<(&str, &str)>) -> n::clnp::Service {
+pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Vec<(&str, &str)>) -> n::clnp::Service<'a> {
     let mut ps = RawPacketStream::new_with_ethertype(dl::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
     ps.bind_with_ethertype(interface_name, dl::ETHER_TYPE_CLNP).expect("failed to bind to interface");
 
@@ -30,7 +30,7 @@ pub fn new(interface_name: &str, hosts: Vec<(&str, &str)>) -> n::clnp::Service {
 
     // get MAC address
     let macaddr = iface_config.hwaddress().expect("could not get hardware address of interface");
-    println!("got SNPA: {}", macaddr);
+    println!("got SNPA address: {}", macaddr);
 
     // dont need it anymore
     drop(iface_config);
@@ -38,7 +38,7 @@ pub fn new(interface_name: &str, hosts: Vec<(&str, &str)>) -> n::clnp::Service {
     // start up OSI network service
     let mut sn = dl::ethernet::Service::new(ps);
     sn.run();
-    let mut ns = n::clnp::Service::new(sn);
+    let mut ns = n::clnp::Service::new(sn, network_entity_title);
     // set own/serviced NSAPs
     ns.add_serviced_subnet_nsap(1, 1, macaddr);
     // add known hosts

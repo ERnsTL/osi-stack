@@ -8,15 +8,17 @@ use osistack::n::NetworkService;
 pub fn main() {
     let args: Vec<_> = env::args().collect();
     if args.len() < 3 {
-        panic!("usage: {} <interface-name> <destination-host> [<host-name> <mac-address>]", args[0]);
+        panic!("usage: {} <interface-name> <own-network-entity-title> <destination-host> [<host-name> <mac-address>]", args[0]);
     }
 
     let interface_name: &str;
     let dest_host: &str;
+    let network_entity_title: &str;
     let mut hosts: Vec<(&str, &str)> = vec![];   // name, MAC address
 
     interface_name = &args[1];
     dest_host = &args[2];
+    network_entity_title = &args[3];
 
     let mut next_host: &str = r"";
     let mut next_macaddr: &str;
@@ -34,7 +36,7 @@ pub fn main() {
     }
 
     // set up network
-    let mut ns = osistack::new(interface_name, hosts);
+    let mut ns = osistack::new(interface_name, network_entity_title, hosts);
 
     // application logic
 
