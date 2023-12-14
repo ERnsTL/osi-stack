@@ -48,4 +48,4 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "osiping"
-path = "src/bin.rs"
+path = "src/bin/osiping/main.rs"
