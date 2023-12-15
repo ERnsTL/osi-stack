@@ -22,7 +22,7 @@ pub fn main() {
 
     let mut next_host: &str = r"";
     let mut next_macaddr: &str;
-    for i in 3..args.len() {
+    for i in 4..args.len() {
         if next_host == "" {
             next_host = &args[i].as_str();
         } else {
