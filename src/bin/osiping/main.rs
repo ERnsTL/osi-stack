@@ -42,12 +42,22 @@ pub fn main() {
 
     // send request to other host
     let qos = n::Qos{};
+    let destination_nsap = ns.resolve_nsap(dest_host).expect("failed to resolve destination nsap");
     loop {
         print!("sending packet...");
+        /*
         ns.n_unitdata_request(
             dest_host,  //TODO change to proper, which is NSAP address - there is no echo service on DL layer
             &qos,
             r"test".as_bytes()
+        );
+        */
+        ns.echo_request(
+            None,
+            Some(destination_nsap.clone()), //TODO optimize clone
+            Some(0),
+            None,
+            &qos
         );
         println!("done");
 
