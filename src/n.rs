@@ -10,7 +10,7 @@ pub trait NetworkService<'a> {
     fn add_serviced_subnet_nsap(&mut self, net: u16, sub_net: u16, macaddr: MacAddr6);
     fn resolve_nsap(&self, system_title: &str) -> Option<&Nsap>;
     fn add_known_host(&mut self, system_title: String, nsap: &str);
-    fn get_serviced_nsap(&mut self) -> Option<&Nsap>;
+    fn get_serviced_nsap(&self) -> Option<&Nsap>;
     fn n_unitdata_request(&mut self,
         ns_destination_title: &str,
         ns_quality_of_service: &Qos,

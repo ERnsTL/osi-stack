@@ -7,7 +7,7 @@ use osistack::n::NetworkService;
 
 pub fn main() {
     let args: Vec<_> = env::args().collect();
-    if args.len() < 3 {
+    if args.len() < 4 {
         panic!("usage: {} <interface-name> <own-network-entity-title> <destination-host> [<host-name> <mac-address>]", args[0]);
     }
 
@@ -17,8 +17,8 @@ pub fn main() {
     let mut hosts: Vec<(&str, &str)> = vec![];   // name, MAC address
 
     interface_name = &args[1];
-    dest_host = &args[2];
-    network_entity_title = &args[3];
+    network_entity_title = &args[2];
+    dest_host = &args[3];
 
     let mut next_host: &str = r"";
     let mut next_macaddr: &str;

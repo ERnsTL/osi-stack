@@ -356,7 +356,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     }
 
     //TODO there are/can be multiple
-    fn get_serviced_nsap(&mut self) -> Option<&Nsap> {
+    fn get_serviced_nsap(&self) -> Option<&Nsap> {
         return self.serviced_nsaps.get(0);
     }
 
