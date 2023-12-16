@@ -252,7 +252,8 @@ struct NDataPart<'a> {
 }
 
 impl Pdu<'_> {
-    pub fn into_buf(&self, buffer: &mut [u8]) -> usize {
+    /// serialize struct into buffer, calculating a few fields along the way
+    pub fn into_buf(&mut self, buffer: &mut [u8]) -> usize {
         //TODO check if given buffer is really < MTU
         match self {
             Self::Inactive{fixed_mini, data} => {
@@ -262,6 +263,104 @@ impl Pdu<'_> {
                     buffer[i+1] = data.data[i];
                 }
                 return 1 + data.data.len();
+            },
+            Self::NDataPDU { fixed, addr, seg, opts, discard, data } |
+            Self::EchoRequestPDU { fixed, addr, seg, opts, discard, data } |
+            Self::EchoResponsePDU { fixed, addr, seg, opts, discard, data } => {
+                // prepare octet 5
+                let octet5 = NFixedPart::compose_octet5_unchecked(
+                    //TODO dont know of these conversions are really needed
+                    if fixed.sp_segmentation_permitted { SpSegmentationPermittedBit::ONE } else { SpSegmentationPermittedBit::ZERO },
+                    if fixed.ms_more_segments { MsMoreSegmentsBit::ONE } else { MsMoreSegmentsBit::ZERO },
+                    if fixed.er_error_report { ErErrorReportBit::ONE } else { ErErrorReportBit::ZERO },
+                    *fixed.type_
+                );
+
+                // prepare length indicators
+                //TODO because of setting the values here we have to make it &mut self - make it possible to use &self?
+                //TODO regarding length indicators calculation: is "reason for discard" part of the header as per Standard? Or is this actually part of the Data part of ER PDU?
+                (*fixed.length_indicator, *addr.destination_address_length_indicator, *addr.source_address_length_indicator) = Pdu::get_length_indicators(&fixed, &addr, &seg, &opts);
+                //TODO optimize this already calculates the length indicator = overall header bytes, so there is duplicaton here <-> bytes
+
+                // write into output buffer
+                let mut bytes = 0;
+
+                // fixed part
+                buffer[0] = *fixed.network_layer_protocol_identifier;
+                buffer[1] = *fixed.length_indicator;
+                buffer[2] = *fixed.version_protocol_id_extension;
+                buffer[3] = *fixed.lifetime;
+                buffer[4] = octet5;
+                let segment_length_ne = fixed.segment_length.to_ne_bytes();
+                buffer[5] = segment_length_ne[0];
+                buffer[6] = segment_length_ne[1];
+                //TODO checksum - !!! for inner Echo Response packed in Eche Request PDU, the checksum shall be invalid
+                //TODO if marked as invalid, then keep it that way
+                //const FIXED_PART_YES_CHECKSUM = 1;
+                //const FIXED_PART_NO_CHECKSUM = 2;
+                let checksum_ne = fixed.checksum.to_ne_bytes();
+                buffer[7] = checksum_ne[0];
+                buffer[8] = checksum_ne[1];
+                bytes += 9;
+
+                // address part
+                //destination address
+                buffer[9] = *addr.destination_address_length_indicator;
+                bytes += 1;
+                for i in 0..addr.destination_address.len() {
+                    buffer[bytes+1] = addr.destination_address[i];
+                }
+                bytes += *addr.destination_address_length_indicator as usize;   //TODO optimize
+                // source address
+                buffer[bytes] = *addr.source_address_length_indicator;
+                bytes += 1;
+                for i in 0..addr.source_address.len() {
+                    buffer[bytes+1] = addr.source_address[i];
+                }
+                bytes += *addr.source_address_length_indicator as usize;    //TODO optimize
+
+                // segmentation part
+                if let Some(seg_inner) = seg {
+                    let data_unit_identifier_ne = seg_inner.data_unit_identifier.to_ne_bytes();
+                    buffer[bytes] = data_unit_identifier_ne[0];
+                    buffer[bytes+1] = data_unit_identifier_ne[1];
+                    bytes += 2;
+                    let segment_offset_ne = seg_inner.segment_offset.to_ne_bytes();
+                    buffer[bytes] = segment_offset_ne[0];
+                    buffer[bytes+1] = segment_offset_ne[1];
+                    bytes += 2;
+                    let total_length_ne = seg_inner.total_length.to_ne_bytes();
+                    buffer[bytes] = total_length_ne[0];
+                    buffer[bytes+1] = total_length_ne[1];
+                    bytes += 2;
+                }
+
+                // options part
+                if let Some(opts_inner) = opts {
+                    bytes += opts_inner.len_bytes();
+                }
+
+                // reason for discard part
+                // N/A only for ER PDU
+
+                // data part
+                //TODO optimize
+                if let Some(data_inner) = data {
+                    for i in 0..data_inner.data.len() {
+                        buffer[i+1] = data_inner.data[i];
+                    }
+                    return bytes + data_inner.data.len();
+                } else {
+                    return bytes;   //TODO
+                }
+            },
+            //TODO are data PDU, ERQ, ERP PDU *and* multicast serialized in the same way?
+            Self::MulticastDataPDU { fixed, addr, seg, opts, discard, data } => {
+                todo!();
+            },
+            Self::ErrorReportPDU { fixed, addr, opts, discard, data } => {
+                todo!();
+                //param: &'a NParameter<'a>   //TODO enforce that here only parameter code "1100 0001" is allowed
             },
             _ => { todo!(); }
         }
