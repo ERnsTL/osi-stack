@@ -125,7 +125,8 @@ impl<'a> Pdu<'_> {
                 // fixed part
                 (1+1+1+1+1+2+2) +
                 // address part
-                (*addr.destination_address_length_indicator.unwrap() + *addr.source_address_length_indicator.unwrap()) +
+                //(*addr.destination_address_length_indicator.unwrap() + *addr.source_address_length_indicator.unwrap()) +  //TODO currently not using the length indicators - but why
+                (addr.destination_address.len() as u8 + addr.source_address.len() as u8) +
                 // segmentation part
                 (if seg.is_some() { 2+2+2 } else { 0 }) +
                 // options part
