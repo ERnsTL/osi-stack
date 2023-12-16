@@ -544,13 +544,12 @@ impl Service<'_> {
         if can_use_inactive_subset(ns_source_address, ns_destination_address) {
             // compose PDU(s)
             let pdus = pdu_composition(true, ns_source_address, ns_destination_address, ns_quality_of_service, ns_userdata);
-            for pdu in pdus {
-                let bla = [1u8];
+            for mut pdu in pdus {   //TODO optimize this should iterate over &Pdu not Pdu (copy?)
                 self.sn_service.sn_unitdata_request(
                     ns_source_address.local_address,
                     ns_destination_address.local_address,
                     dl::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
-                    &pdu    //TODO not perfect abstraction, but should save us a memcpy
+                    &mut pdu    //TODO not perfect abstraction, but should save us a memcpy
                 );
                 self.sn_service.flush();
             }
