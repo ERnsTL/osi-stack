@@ -29,20 +29,27 @@ const TYPE_ER_PDU: u8 = 0b00000001;     // error report
 const TYPE_ERQ_PDU: u8 = 0b00011110;    // echo request
 const TYPE_ERP_PDU: u8 = 0b00011111;    // echo response
 
+const ZERO: u8 = 0;
+
 impl<'a> Pdu<'_> {
     fn new_echo_request(
-        sp_segmentation_permitted: bool,
+        sp_segmentation_permitted: bool,    //TODO use that :-)
         source_address: &Nsap,
         destination_address: &Nsap,
-        options: &Option<NOptionsPart>
+        options: &Option<NOptionsPart>, //TODO use that :-)
+        buffer_scratch: &'a mut [u8]    /* TODO optimize - this is horrible; 
+        currently so and Pdu fields mix of & and owned values and Option<> values because 
+        Pdu is used for composition (want as many & as possible) and for compositing (have 
+        unknown values like length indicators, unset values and cannot put echo response PDU 
+        into buffer of outer echo request PDU because of not owned buffer in this function) */
     ) -> Pdu<'a> {
         // compose echo response PDU to be put into the echo request PDU's data part
-        let erp_pdu_destination_address = destination_address.as_u8();   //TODO optimize
-        let erp_pdu_source_address = source_address.as_u8();
+        let erp_pdu_destination_address = destination_address.to_u8();   //TODO optimize
+        let erp_pdu_source_address = source_address.to_u8();
         let mut erp_pdu = Pdu::EchoResponsePDU {
             fixed: NFixedPart {
                 network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL,
-                length_indicator: &mut 0,    // will be filled
+                length_indicator: None,    // will be filled
                 version_protocol_id_extension: &VERSION_PROTOCOL_ID_EXTENSION_1,
                 lifetime: &(((1000*10)/500) as u8),   // TODO 10 seconds  //TODO optimize converts from i32 to u8 
                 sp_segmentation_permitted: false,   // setting to false for now TODO
@@ -54,10 +61,10 @@ impl<'a> Pdu<'_> {
                 checksum: &0,    // an invalid value per 6.19 e)
             },
             addr: NAddressPart {
-                destination_address_length_indicator: &mut 0,   // will be filled later
-                destination_address: erp_pdu_destination_address,    // TODO X.233 6.19 e) demands a "valid value" meaning the return address?
-                source_address_length_indicator: &mut 0,    // will be filled later
-                source_address: erp_pdu_source_address,    // TODO X.233 6.19 e) demands a "valid value" meaning the return address?
+                destination_address_length_indicator: None,   // will be filled later
+                destination_address: erp_pdu_destination_address.clone(),    //TODO optimize clone  // TODO X.233 6.19 e) demands a "valid value" meaning the return address?
+                source_address_length_indicator: None,    // will be filled later
+                source_address: erp_pdu_source_address.clone(),    //TODO optimize clone  // TODO X.233 6.19 e) demands a "valid value" meaning the return address?
             },
             seg: None,  // only if the sp_segmentation_permitted bit is set, shall this part be present X.233 6.19 e)
             opts: None,  // may be present and contain any options from X.233 7.5
@@ -68,14 +75,14 @@ impl<'a> Pdu<'_> {
         };
 
         // compose echo request PDU
-        let mut buffer: [u8; 64] = [0; 64]; //TODO optimize allocation
-        let data_num_bytes = erp_pdu.into_buf(&mut buffer); //TODO optimize useless putting into buffer
+        //let mut buffer: [u8; 64] = [0; 64]; //TODO optimize allocation
+        let data_num_bytes = erp_pdu.into_buf(buffer_scratch); //TODO optimize useless putting into buffer
 
         // the actual echo request PDU
         let erq_pdu = Pdu::EchoRequestPDU {
             fixed: NFixedPart {
                 network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL,
-                length_indicator: &mut 0,    // will be filled
+                length_indicator: None,    // will be filled
                 version_protocol_id_extension: &VERSION_PROTOCOL_ID_EXTENSION_1,
                 lifetime: &(((1000*10)/500) as u8),   //TODO 10 seconds  //TODO optimize converts from i32 to u8 
                 sp_segmentation_permitted: false,   // setting to false for now TODO - depending on network service setting / protocol subset
@@ -87,16 +94,16 @@ impl<'a> Pdu<'_> {
                 checksum: &0,    // an invalid value per 6.19 e)
             },
             addr: NAddressPart {
-                destination_address_length_indicator: &mut 0,   // will be filled
-                destination_address: destination_address.as_u8(),   // X.233 6.19 b) TODO implement fully
-                source_address_length_indicator: &mut 0,    // will be filled
-                source_address: source_address.as_u8(),    // X.233 6.19 b) TODO implement fully
+                destination_address_length_indicator: None,   // will be filled
+                destination_address: erp_pdu_destination_address,   // X.233 6.19 b) TODO implement fully
+                source_address_length_indicator: None,    // will be filled
+                source_address: erp_pdu_source_address,    // X.233 6.19 b) TODO implement fully
             },
             seg: None,  // only if the sp_segmentation_permitted bit is set, shall this part be present X.233 6.19 e)
             opts: None,  // may be present and contain any options from X.233 7.5
             discard: None,
             data: Some(NDataPart {
-                data: &buffer[0..data_num_bytes],   // the echo request PDU per X.233 6.19 TODO
+                data: &buffer_scratch[0..data_num_bytes],   // the echo request PDU per X.233 6.19 TODO
             })
         };
 
@@ -118,7 +125,7 @@ impl<'a> Pdu<'_> {
                 // fixed part
                 (1+1+1+1+1+2+2) +
                 // address part
-                (*addr.destination_address_length_indicator + *addr.source_address_length_indicator) +
+                (*addr.destination_address_length_indicator.unwrap() + *addr.source_address_length_indicator.unwrap()) +
                 // segmentation part
                 (if seg.is_some() { 2+2+2 } else { 0 }) +
                 // options part
@@ -144,7 +151,7 @@ const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE: u8 = 0b0000_0000;
 #[derive(Debug)]
 struct NFixedPart<'a> {
     network_layer_protocol_identifier: &'a u8,
-    length_indicator: &'a mut u8,
+    length_indicator: Option<&'a u8>,
     version_protocol_id_extension: &'a u8,
     lifetime: &'a u8,
     /// 0 = not permitted, no segmentation part present in PDU, non-segmenting protocol subset in use
@@ -201,10 +208,10 @@ impl NFixedPart<'_> {
 
 #[derive(Debug)]
 struct NAddressPart<'a> {
-    destination_address_length_indicator: &'a mut u8,
-    destination_address: &'a [u8],
-    source_address_length_indicator: &'a mut u8,
-    source_address: &'a [u8]
+    destination_address_length_indicator: Option<&'a u8>,
+    destination_address: Vec<u8>,  //TODO optimize - owned only because of Pdu::to_buf() converts Nsap to [u8] and "data is owned by current function"
+    source_address_length_indicator: Option<&'a u8>,
+    source_address: Vec<u8>    //TODO optimize - owned only because of Pdu::to_buf() converts Nsap to [u8] and "data is owned by current function"
 }
 
 #[derive(Debug)]
@@ -277,15 +284,14 @@ impl Pdu<'_> {
                 // prepare length indicators
                 //TODO because of setting the values here we have to make it &mut self - make it possible to use &self?
                 //TODO regarding length indicators calculation: is "reason for discard" part of the header as per Standard? Or is this actually part of the Data part of ER PDU?
-                (*fixed.length_indicator, *addr.destination_address_length_indicator, *addr.source_address_length_indicator) = Pdu::get_length_indicators(&fixed, &addr, &seg, &opts);
-                //TODO optimize this already calculates the length indicator = overall header bytes, so there is duplicaton here <-> bytes
+                let (fixed_length_indicator, addr_destination_address_length_indicator, addr_source_address_length_indicator) = Pdu::get_length_indicators(&fixed, &addr, &seg, &opts);
 
                 // write into output buffer
                 let mut bytes = 0;
 
                 // fixed part
                 buffer[0] = *fixed.network_layer_protocol_identifier;
-                buffer[1] = *fixed.length_indicator;
+                buffer[1] = fixed_length_indicator;
                 buffer[2] = *fixed.version_protocol_id_extension;
                 buffer[3] = *fixed.lifetime;
                 buffer[4] = octet5;
@@ -303,19 +309,19 @@ impl Pdu<'_> {
 
                 // address part
                 //destination address
-                buffer[9] = *addr.destination_address_length_indicator;
+                buffer[9] = addr_destination_address_length_indicator;
                 bytes += 1;
                 for i in 0..addr.destination_address.len() {
                     buffer[bytes+1] = addr.destination_address[i];
                 }
-                bytes += *addr.destination_address_length_indicator as usize;   //TODO optimize
+                bytes += addr_destination_address_length_indicator as usize;   //TODO optimize
                 // source address
-                buffer[bytes] = *addr.source_address_length_indicator;
+                buffer[bytes] = addr_source_address_length_indicator;
                 bytes += 1;
                 for i in 0..addr.source_address.len() {
                     buffer[bytes+1] = addr.source_address[i];
                 }
-                bytes += *addr.source_address_length_indicator as usize;    //TODO optimize
+                bytes += addr_source_address_length_indicator as usize;    //TODO optimize
 
                 // segmentation part
                 if let Some(seg_inner) = seg {
@@ -511,11 +517,13 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         //TODO 6.19 d)
 
         // compose ERQ PDU
+        let mut buf_scratch = [0u8; 64];
         let mut erq_pdu = Pdu::new_echo_request(
             false,   //TODO implement non-segmenting protocol subset properly - refer to NS.operating mode or so
             &source_address,
             &destination_address,
-            &options
+            &options,
+            &mut buf_scratch
         );
 
         // send it via data link or subnetwork

@@ -46,19 +46,31 @@ impl Nsap {
         todo!()
     }
 
+    fn len(&self) -> usize {
+        return 2+2+2+6;
+    }
+
     //TODO optimize
-    fn as_u8(&self) -> &[u8] {
+    fn to_u8(&self) -> Vec<u8> {
         //TODO optimize https://stackoverflow.com/questions/40154150/how-do-i-concatenate-two-slices-in-rust
         //let mut one = [self.authority.to_ne_bytes(), self.area.to_ne_bytes(), self.sub_area.to_ne_bytes()].concat();
         //one.extend_from_slice(self.local_address.as_slice());
         //return one;
 
-        return &[
-            self.authority.to_ne_bytes()[0], self.authority.to_ne_bytes()[1],
-            self.area.to_ne_bytes()[0], self.area.to_ne_bytes()[1],
-            self.sub_area.to_ne_bytes()[0], self.sub_area.to_ne_bytes()[1],
-            self.local_address.to_array()[0], self.local_address.to_array()[1], self.local_address.to_array()[2], self.local_address.to_array()[3], self.local_address.to_array()[4], self.local_address.to_array()[5]
-        ];
+        let mut buffer = Vec::with_capacity(self.len());
+        buffer[0] = self.authority.to_ne_bytes()[0];
+        buffer[1] = self.authority.to_ne_bytes()[1];
+        buffer[2] = self.area.to_ne_bytes()[0];
+        buffer[3] = self.area.to_ne_bytes()[1];
+        buffer[4] = self.sub_area.to_ne_bytes()[0];
+        buffer[5] = self.sub_area.to_ne_bytes()[1];
+        buffer[6] = self.local_address.to_array()[0];
+        buffer[7] = self.local_address.to_array()[1];
+        buffer[8] = self.local_address.to_array()[2];
+        buffer[9] = self.local_address.to_array()[3];
+        buffer[10] = self.local_address.to_array()[4];
+        buffer[11] = self.local_address.to_array()[5];
+        return buffer;
     }
 }
 
