@@ -33,7 +33,7 @@ pub trait NetworkService<'a> {
 }
 
 //TODO implement full NSAP
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Nsap {
     authority: u16, // 49 = local network
     area: u16,  //net (?)
@@ -58,18 +58,20 @@ impl Nsap {
         //return one;
 
         let mut buffer = Vec::with_capacity(self.len());
-        buffer[0] = self.authority.to_ne_bytes()[0];
-        buffer[1] = self.authority.to_ne_bytes()[1];
-        buffer[2] = self.area.to_ne_bytes()[0];
-        buffer[3] = self.area.to_ne_bytes()[1];
-        buffer[4] = self.sub_area.to_ne_bytes()[0];
-        buffer[5] = self.sub_area.to_ne_bytes()[1];
-        buffer[6] = self.local_address.to_array()[0];
-        buffer[7] = self.local_address.to_array()[1];
-        buffer[8] = self.local_address.to_array()[2];
-        buffer[9] = self.local_address.to_array()[3];
-        buffer[10] = self.local_address.to_array()[4];
-        buffer[11] = self.local_address.to_array()[5];
+        /* NOTE: with capacity we cannot assign buffer[..] directly, have to push()
+        and have to push each byte individually because if we push [u8;2] as first one, then it only wants further [u8;2] */
+        buffer.push(self.authority.to_ne_bytes()[0]);
+        buffer.push(self.authority.to_ne_bytes()[1]);
+        buffer.push(self.area.to_ne_bytes()[0]);
+        buffer.push(self.area.to_ne_bytes()[1]);
+        buffer.push(self.sub_area.to_ne_bytes()[0]);
+        buffer.push(self.sub_area.to_ne_bytes()[1]);
+        buffer.push(self.local_address.to_array()[0]);
+        buffer.push(self.local_address.to_array()[1]);
+        buffer.push(self.local_address.to_array()[2]);
+        buffer.push(self.local_address.to_array()[3]);
+        buffer.push(self.local_address.to_array()[4]);
+        buffer.push(self.local_address.to_array()[5]);
         return buffer;
     }
 }
