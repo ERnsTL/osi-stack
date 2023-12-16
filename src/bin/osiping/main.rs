@@ -42,7 +42,6 @@ pub fn main() {
 
     // send request to other host
     let qos = n::Qos{};
-    let destination_nsap = ns.resolve_nsap(dest_host).expect("failed to resolve destination nsap");
     loop {
         print!("sending packet...");
         /*
@@ -53,8 +52,8 @@ pub fn main() {
         );
         */
         ns.echo_request(
+            Some(dest_host.to_owned()), //TODO optimize clone
             None,
-            Some(destination_nsap.clone()), //TODO optimize clone
             Some(0),
             None,
             &qos

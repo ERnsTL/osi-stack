@@ -11,13 +11,13 @@ pub fn parse_macaddr(instr: &str) -> Result<MacAddr6, advmac::ParseError> {
 #[derive(Debug)]
 pub enum Pdu<'a> {
     Inactive { fixed_mini: NFixedPartMiniForInactive<'a>, data: NDataPart<'a> },
-    NDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
+    NDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
     // no segmentation, but reason for discard is mandatory
-    ErrorReportPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, op: Option<NOptionsPart<'a>>, discard: NReasonForDiscardPart<'a>, data: Option<NDataPart<'a>> },
+    ErrorReportPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, opts: Option<NOptionsPart<'a>>, discard: NReasonForDiscardPart<'a>, data: Option<NDataPart<'a>> },
     // these are the same as DataPDU / DT PDU
-    EchoRequestPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
-    EchoResponsePDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
-    MulticastDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opt: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> }
+    EchoRequestPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
+    EchoResponsePDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
+    MulticastDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> }
 }
 
 const VERSION_PROTOCOL_ID_EXTENSION_1: u8 = 0b0000_0001;
@@ -37,7 +37,11 @@ impl<'a> Pdu<'_> {
         options: &Option<NOptionsPart>
     ) -> Pdu<'a> {
         // compose echo response PDU to be put into the echo request PDU's data part
-        let erp_pdu = Pdu::EchoResponsePDU {
+        let binding = destination_address.as_u8();
+        let erp_pdu_destination_address = binding.as_slice();
+        let binding = source_address.as_u8();
+        let erp_pdu_source_address = binding.as_slice();
+        let mut erp_pdu = Pdu::EchoResponsePDU {
             fixed: NFixedPart {
                 network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL,
                 length_indicator: &mut 0,    // will be filled
@@ -52,35 +56,21 @@ impl<'a> Pdu<'_> {
                 checksum: &0,    // an invalid value per 6.19 e)
             },
             addr: NAddressPart {
-                destination_address_length_indicator: todo!(),
-                destination_address: source_address.as_u8().as_slice(),    // TODO X.233 6.19 e) demands a "valid value" meaning the return address?
-                source_address_length_indicator: todo!(),
-                source_address: destination_address.as_u8().as_slice(),    // TODO X.233 6.19 e) demands a "valid value" meaning the return address?
+                destination_address_length_indicator: &mut 0,   // will be filled later
+                destination_address: erp_pdu_destination_address,    // TODO X.233 6.19 e) demands a "valid value" meaning the return address?
+                source_address_length_indicator: &mut 0,    // will be filled later
+                source_address: erp_pdu_source_address,    // TODO X.233 6.19 e) demands a "valid value" meaning the return address?
             },
             seg: None,  // only if the sp_segmentation_permitted bit is set, shall this part be present X.233 6.19 e)
-            opt: None,  // may be present and contain any options from X.233 7.5
+            opts: None,  // may be present and contain any options from X.233 7.5
             discard: None,
             data: Some(NDataPart {
                 data: &r"correlation number for ping".as_bytes()   //TODO
             })
         };
 
-        if let Pdu::EchoResponsePDU { fixed, addr, opt, seg, discard, ..} = erp_pdu {
-            // set octet 5
-            *fixed.octet5 = NFixedPart::compose_octet5_unchecked(
-                //TODO dont know of these conversions are really needed
-                if fixed.sp_segmentation_permitted { SpSegmentationPermittedBit::ONE } else { SpSegmentationPermittedBit::ZERO },
-                if fixed.ms_more_segments { MsMoreSegmentsBit::ONE } else { MsMoreSegmentsBit::ZERO },
-                if fixed.er_error_report { ErErrorReportBit::ONE } else { ErErrorReportBit::ZERO },
-                *fixed.type_
-            );
-
-            // set length indicators
-            Pdu::compose_length_indicators(&mut fixed, &mut addr, &seg, &opt);
-        }
-
         // compose echo request PDU
-        let mut buffer: [u8; 64];
+        let mut buffer: [u8; 64] = [0; 64]; //TODO optimize allocation
         let data_num_bytes = erp_pdu.into_buf(&mut buffer); //TODO optimize useless putting into buffer
 
         // the actual echo request PDU
@@ -105,50 +95,42 @@ impl<'a> Pdu<'_> {
                 source_address: source_address.as_u8().as_slice(),    // X.233 6.19 b) TODO implement fully
             },
             seg: None,  // only if the sp_segmentation_permitted bit is set, shall this part be present X.233 6.19 e)
-            opt: None,  // may be present and contain any options from X.233 7.5
+            opts: None,  // may be present and contain any options from X.233 7.5
             discard: None,
             data: Some(NDataPart {
-                data: &buffer[0..data_num_bytes],   // the echo request PDU
+                data: &buffer[0..data_num_bytes],   // the echo request PDU per X.233 6.19 TODO
             })
         };
-
-        if let Pdu::EchoRequestPDU { fixed, addr, opt, seg, discard, ..} = erq_pdu {
-            // set octet 5
-            *fixed.octet5 = NFixedPart::compose_octet5_unchecked(
-                //TODO dont know of these conversions are really needed
-                if fixed.sp_segmentation_permitted { SpSegmentationPermittedBit::ONE } else { SpSegmentationPermittedBit::ZERO },
-                if fixed.ms_more_segments { MsMoreSegmentsBit::ONE } else { MsMoreSegmentsBit::ZERO },
-                if fixed.er_error_report { ErErrorReportBit::ONE } else { ErErrorReportBit::ZERO },
-                *fixed.type_
-            );
-
-            // set length indicators
-            Pdu::compose_length_indicators(&mut fixed, &mut addr, &seg, &opt);
-        }
 
         return erq_pdu;
     }
 
     //TODO is "reason for discard" part of the header, thus the header length - or only for error report PDU?
-    fn compose_length_indicators(fixed: &mut NFixedPart<'_>, addr: &mut NAddressPart<'_>, seg: &Option<NSegmentationPart<'_>>, opt: &Option<NOptionsPart<'_>>) {
-        // address part length indicators
-        *addr.destination_address_length_indicator = addr.destination_address.len() as u8;
-        *addr.source_address_length_indicator = addr.source_address.len() as u8;
-        // fixed part length indicator (overall header)
-        *fixed.length_indicator = 
-            // fixed part
-            (1+1+1+1+1+2+2) +
+    fn get_length_indicators(fixed: &NFixedPart<'_>, addr: &NAddressPart<'_>, seg: &Option<NSegmentationPart<'_>>, opts: &Option<NOptionsPart<'_>>) -> (u8, u8, u8) {
+        return (
             // address part
-            (*addr.destination_address_length_indicator + *addr.source_address_length_indicator) +
-            // segmentation part
-            (if seg.is_some() { 2+2+2 } else { 0 }) +
-            // options part
-            (if let Some(opt_inner) = opt {
-                (opt_inner.params.len() * (1+1+1)) as u8
-            } else {
-                0 as u8
-            });
-        return;
+            // destination address length indicator
+            addr.destination_address.len() as u8,
+            // source address length indicator
+            addr.source_address.len() as u8,
+
+            // fixed part
+            // length indicator (overall header)
+            (
+                // fixed part
+                (1+1+1+1+1+2+2) +
+                // address part
+                (*addr.destination_address_length_indicator + *addr.source_address_length_indicator) +
+                // segmentation part
+                (if seg.is_some() { 2+2+2 } else { 0 }) +
+                // options part
+                (if let Some(opts_inner) = opts {
+                    opts_inner.len_bytes() as u8    //TODO optimize
+                } else {
+                    0 as u8
+                })
+            )
+        );
     }
 }
 

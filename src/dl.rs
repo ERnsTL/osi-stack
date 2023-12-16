@@ -21,7 +21,7 @@ pub trait SubnetworkService {
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
         sn_quality_of_service: Qos,
-        sn_userdata: &crate::n::clnp::Pdu
+        sn_userdata: &mut crate::n::clnp::Pdu
     );
     fn flush(&mut self);
     fn sn_unitdata_indication(

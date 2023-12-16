@@ -27,7 +27,7 @@ impl SubnetworkService for Service {
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
         sn_quality_of_service: Qos,
-        sn_userdata: &n::clnp::Pdu,  //TODO not perfectly abstracted, should be &[u8], but why not write directly into lower layer's buffer?
+        sn_userdata: &mut n::clnp::Pdu,  //TODO not perfectly abstracted, should be &[u8], but why not write directly into lower layer's buffer?
     ) {
         // send SNSDU (Ethernet frame)
         //TODO optimize - here an Ethernet2 header is allocated, which copies the values from sn_* - better something which borrows the values

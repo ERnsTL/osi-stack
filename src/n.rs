@@ -25,7 +25,7 @@ pub trait NetworkService<'a> {
     // X.233 6.19 Echo request function
     fn echo_request(&mut self,
         destination_title: Option<String>,
-        destination_nsap: Option<Nsap>,
+        destination_nsap: Option<&Nsap>,
         source_address_index: Option<usize>,
         options: Option<NOptionsPart>,
         ns_quality_of_service: &Qos
