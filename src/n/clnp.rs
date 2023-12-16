@@ -481,16 +481,18 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     //TODO implement correctly to the point
     fn echo_request(&mut self,
         destination_title: Option<String>,
-        destination_nsap: Option<Nsap>,
+        destination_nsap: Option<&Nsap>,
         source_address_index: Option<usize>,
         options: Option<NOptionsPart>,
         quality_of_service: &crate::n::Qos
     ) {
         // destination
-        let destination_address;
-        if destination_title.is_some() {
+        let destination_address: &Nsap;
+        if let Some(destination_title2) = destination_title {
             // convert to NSAP
-            destination_address = Nsap::new_from_network_entity_title(destination_title.unwrap());
+            destination_address = self.resolve_nsap(&destination_title2).expect("failed to resolve system-title");
+            // Nsap::new_from_network_entity_title(destination_title.unwrap());
+            // TODO implement ^ kind of NSAP which is allowed by standard
         } else if destination_nsap.is_some() {
             destination_address = destination_nsap.unwrap();
         } else {
@@ -511,7 +513,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         //TODO 6.19 d)
 
         // compose ERQ PDU
-        let erq_pdu = Pdu::new_echo_request(
+        let mut erq_pdu = Pdu::new_echo_request(
             false,   //TODO implement non-segmenting protocol subset properly - refer to NS.operating mode or so
             &source_address,
             &destination_address,
@@ -524,7 +526,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             source_address.local_address,
             destination_address.local_address,
             sn_quality_of_service,
-            &erq_pdu
+            &mut erq_pdu
         );
     }
 }
