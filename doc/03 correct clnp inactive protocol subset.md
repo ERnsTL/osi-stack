@@ -8,6 +8,7 @@ Goals:
 * Request and indication between NS and SN - request for outgoing, indications for incoming.
   * X.233 clause 8.4 says that the requests go down the stack and indications go back up the stack.
 * Pull up NS and SN protocol support and internal architecture by implementing an incomplete version of Echo Request and Echo Response.
+* Add NPDU Echo Request and Echo Response composition, which incidentially is also for any normal Data PDU and possibly even Multicast Data PDU.
 
 * TODO the subnetwork service must be an active component (thread) blocking on socket.read() and being able to propagate up the stack.
   * read up is active
@@ -19,6 +20,8 @@ Goals:
 * and we will need mailboxes - shared memory handover of PDUs.
    * down the stack we package &upperpdu into larger PDU and pass it & down the stack. Upon write() the kernel makes a copy and returns the buffer.
    * up the stack we trim things from the buffer - by creating an ever smaller view/slice into the layer2 buffer. The buffer remains in ownership of the SubnetworkService. Arriving in destination layer, the layer makes a copy and returns the buffer.
+
+
 * TODO X.213 Introduction "Any particular subnetwork may or may not support the OSI Network Service. The OSI Network Service may be
 provided by a combination of one or more subnetworks and optional additional functions between or outside these
 subnetworks."
