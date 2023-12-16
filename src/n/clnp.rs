@@ -37,10 +37,8 @@ impl<'a> Pdu<'_> {
         options: &Option<NOptionsPart>
     ) -> Pdu<'a> {
         // compose echo response PDU to be put into the echo request PDU's data part
-        let binding = destination_address.as_u8();
-        let erp_pdu_destination_address = binding.as_slice();
-        let binding = source_address.as_u8();
-        let erp_pdu_source_address = binding.as_slice();
+        let erp_pdu_destination_address = destination_address.as_u8();   //TODO optimize
+        let erp_pdu_source_address = source_address.as_u8();
         let mut erp_pdu = Pdu::EchoResponsePDU {
             fixed: NFixedPart {
                 network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL,
@@ -89,10 +87,10 @@ impl<'a> Pdu<'_> {
                 checksum: &0,    // an invalid value per 6.19 e)
             },
             addr: NAddressPart {
-                destination_address_length_indicator: todo!(),
-                destination_address: destination_address.as_u8().as_slice(),   // X.233 6.19 b) TODO implement fully
-                source_address_length_indicator: todo!(),
-                source_address: source_address.as_u8().as_slice(),    // X.233 6.19 b) TODO implement fully
+                destination_address_length_indicator: &mut 0,   // will be filled
+                destination_address: destination_address.as_u8(),   // X.233 6.19 b) TODO implement fully
+                source_address_length_indicator: &mut 0,    // will be filled
+                source_address: source_address.as_u8(),    // X.233 6.19 b) TODO implement fully
             },
             seg: None,  // only if the sp_segmentation_permitted bit is set, shall this part be present X.233 6.19 e)
             opts: None,  // may be present and contain any options from X.233 7.5

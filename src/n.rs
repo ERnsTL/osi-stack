@@ -47,11 +47,18 @@ impl Nsap {
     }
 
     //TODO optimize
-    fn as_u8(&self) -> Vec<u8> {
+    fn as_u8(&self) -> &[u8] {
         //TODO optimize https://stackoverflow.com/questions/40154150/how-do-i-concatenate-two-slices-in-rust
-        let mut one = [self.authority.to_ne_bytes(), self.area.to_ne_bytes(), self.sub_area.to_ne_bytes()].concat();
-        one.extend_from_slice(self.local_address.as_slice());
-        return one;
+        //let mut one = [self.authority.to_ne_bytes(), self.area.to_ne_bytes(), self.sub_area.to_ne_bytes()].concat();
+        //one.extend_from_slice(self.local_address.as_slice());
+        //return one;
+
+        return &[
+            self.authority.to_ne_bytes()[0], self.authority.to_ne_bytes()[1],
+            self.area.to_ne_bytes()[0], self.area.to_ne_bytes()[1],
+            self.sub_area.to_ne_bytes()[0], self.sub_area.to_ne_bytes()[1],
+            self.local_address.to_array()[0], self.local_address.to_array()[1], self.local_address.to_array()[2], self.local_address.to_array()[3], self.local_address.to_array()[4], self.local_address.to_array()[5]
+        ];
     }
 }
 
