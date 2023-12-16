@@ -518,7 +518,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         //TODO 6.19 d)
 
         // compose ERQ PDU
-        let mut buf_scratch = [0u8; 64];
+        let mut buf_scratch = [0u8; 100];
         let mut erq_pdu = Pdu::new_echo_request(
             false,   //TODO implement non-segmenting protocol subset properly - refer to NS.operating mode or so
             &source_address,
