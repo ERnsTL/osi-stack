@@ -70,7 +70,7 @@ impl<'a> Pdu<'_> {
             opts: None,  // may be present and contain any options from X.233 7.5
             discard: None,
             data: Some(NDataPart {
-                data: &r"correlation number for ping".as_bytes()   //TODO
+                data: &r"xxxxxxx".as_bytes()   //TODO should be correlation number / sequence number
             })
         };
 
@@ -111,22 +111,17 @@ impl<'a> Pdu<'_> {
     }
 
     //TODO is "reason for discard" part of the header, thus the header length - or only for error report PDU?
-    fn get_length_indicators(fixed: &NFixedPart<'_>, addr: &NAddressPart<'_>, seg: &Option<NSegmentationPart<'_>>, opts: &Option<NOptionsPart<'_>>) -> (u8, u8, u8) {
+    fn get_length_indicators(fixed: &NFixedPart<'_>, addr: &NAddressPart<'_>, seg: &Option<NSegmentationPart<'_>>, opts: &Option<NOptionsPart<'_>>, data: &Option<NDataPart<'_>>) -> (u8, u16, u8, u8) {
         return (
-            // address part
-            // destination address length indicator
-            addr.destination_address.len() as u8,
-            // source address length indicator
-            addr.source_address.len() as u8,
-
             // fixed part
+
             // length indicator (overall header)
             (
                 // fixed part
                 (1+1+1+1+1+2+2) +
                 // address part
                 //(*addr.destination_address_length_indicator.unwrap() + *addr.source_address_length_indicator.unwrap()) +  //TODO currently not using the length indicators - but why
-                (addr.destination_address.len() as u8 + addr.source_address.len() as u8) +
+                (1 + (addr.destination_address.len() as u8) + 1 + (addr.source_address.len() as u8)) +
                 // segmentation part
                 (if seg.is_some() { 2+2+2 } else { 0 }) +
                 // options part
@@ -135,7 +130,37 @@ impl<'a> Pdu<'_> {
                 } else {
                     0 as u8
                 })
-            )
+            ),
+            // segment length
+            (
+                // fixed part
+                (1+1+1+1+1+2+2) +
+                // address part
+                //(*addr.destination_address_length_indicator.unwrap() + *addr.source_address_length_indicator.unwrap()) +  //TODO currently not using the length indicators - but why
+                (1 + (addr.destination_address.len() as u16) + 1 + (addr.source_address.len() as u16)) +
+                // segmentation part
+                (if seg.is_some() { 2+2+2 } else { 0 }) +
+                // options part
+                (if let Some(opts_inner) = opts {
+                    opts_inner.len_bytes() as u16    //TODO optimize
+                } else {
+                    0 as u16
+                }) +
+                //TODO optimize ^ above is duplicated
+                // data part
+                (if let Some(data_inner) = data {
+                    data_inner.data.len() as u16    //TODO optimize
+                } else {
+                    0 as u16
+                })
+            ),
+
+            // address part
+
+            // destination address length indicator
+            addr.destination_address.len() as u8,
+            // source address length indicator
+            addr.source_address.len() as u8,
         );
     }
 }
@@ -285,25 +310,27 @@ impl Pdu<'_> {
                 // prepare length indicators
                 //TODO because of setting the values here we have to make it &mut self - make it possible to use &self?
                 //TODO regarding length indicators calculation: is "reason for discard" part of the header as per Standard? Or is this actually part of the Data part of ER PDU?
-                let (fixed_length_indicator, addr_destination_address_length_indicator, addr_source_address_length_indicator) = Pdu::get_length_indicators(&fixed, &addr, &seg, &opts);
+                let (fixed_length_indicator, fixed_segment_length, addr_destination_address_length_indicator, addr_source_address_length_indicator) = Pdu::get_length_indicators(&fixed, &addr, &seg, &opts, &data);
 
                 // write into output buffer
                 let mut bytes = 0;
 
                 // fixed part
                 buffer[0] = *fixed.network_layer_protocol_identifier;
-                buffer[1] = fixed_length_indicator;
+                buffer[1] = fixed_length_indicator; // header length
                 buffer[2] = *fixed.version_protocol_id_extension;
                 buffer[3] = *fixed.lifetime;
                 buffer[4] = octet5;
-                let segment_length_ne = fixed.segment_length.to_ne_bytes();
-                buffer[5] = segment_length_ne[0];
-                buffer[6] = segment_length_ne[1];
+                //let segment_length_ne = fixed.segment_length.to_ne_bytes();
+                //buffer[5] = segment_length_ne[0];   // packet length incl. header   //TODO calculate ;-)
+                //buffer[6] = segment_length_ne[1];
+                buffer[5] = fixed_segment_length.to_ne_bytes()[0];   // packet length incl. header
+                buffer[6] = fixed_segment_length.to_ne_bytes()[1];
                 //TODO checksum - !!! for inner Echo Response packed in Eche Request PDU, the checksum shall be invalid
                 //TODO if marked as invalid, then keep it that way
                 //const FIXED_PART_YES_CHECKSUM = 1;
                 //const FIXED_PART_NO_CHECKSUM = 2;
-                let checksum_ne = fixed.checksum.to_ne_bytes();
+                let checksum_ne = fixed.checksum.to_ne_bytes(); //TODO calculate checksum
                 buffer[7] = checksum_ne[0];
                 buffer[8] = checksum_ne[1];
                 bytes += 9;
@@ -313,14 +340,14 @@ impl Pdu<'_> {
                 buffer[9] = addr_destination_address_length_indicator;
                 bytes += 1;
                 for i in 0..addr.destination_address.len() {
-                    buffer[bytes+1] = addr.destination_address[i];
+                    buffer[bytes+i] = addr.destination_address[i];
                 }
                 bytes += addr_destination_address_length_indicator as usize;   //TODO optimize
                 // source address
                 buffer[bytes] = addr_source_address_length_indicator;
                 bytes += 1;
                 for i in 0..addr.source_address.len() {
-                    buffer[bytes+1] = addr.source_address[i];
+                    buffer[bytes+i] = addr.source_address[i];
                 }
                 bytes += addr_source_address_length_indicator as usize;    //TODO optimize
 
@@ -352,7 +379,7 @@ impl Pdu<'_> {
                 //TODO optimize
                 if let Some(data_inner) = data {
                     for i in 0..data_inner.data.len() {
-                        buffer[i+1] = data_inner.data[i];
+                        buffer[bytes+i] = data_inner.data[i];
                     }
                     return bytes + data_inner.data.len();
                 } else {
@@ -518,13 +545,13 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         //TODO 6.19 d)
 
         // compose ERQ PDU
-        let mut buf_scratch = [0u8; 100];
+        let mut buffer_scratch = [0u8; 64];
         let mut erq_pdu = Pdu::new_echo_request(
             false,   //TODO implement non-segmenting protocol subset properly - refer to NS.operating mode or so
             &source_address,
             &destination_address,
             &options,
-            &mut buf_scratch
+            &mut buffer_scratch
         );
 
         // send it via data link or subnetwork
