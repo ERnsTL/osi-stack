@@ -230,6 +230,16 @@ struct NParameter<'a> {
     parameter_value: &'a [u8],
 }
 
+impl NOptionsPart<'_> {
+    fn len_bytes(&self) -> usize {
+        let mut bytes = self.params.len()* (1+1);   // type and length
+        for i in 0..self.params.len() {
+            bytes += self.params[i].parameter_value.len();
+        }
+        return bytes;
+    }
+}
+
 #[derive(Debug)]
 struct NReasonForDiscardPart<'a> {
     /// has format of a parameter from the options part
