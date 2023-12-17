@@ -43,7 +43,7 @@ impl SubnetworkService for Service {
 
         // send NPDU (CLNP PDU)
         println!("writing NPDU...");
-        let bytes = sn_userdata.into_buf(&mut remainder);
+        let bytes = sn_userdata.into_buf(true, &mut remainder);
         self.socket.write(&self.buffer[0..bytes + 14]).expect("could not write buffer into socket");    //TODO +14 is not cleanly abtracted
 
         println!("flushing DL...");

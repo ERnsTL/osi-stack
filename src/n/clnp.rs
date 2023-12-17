@@ -75,11 +75,12 @@ impl<'a> Pdu<'_> {
             })
         };
 
-        // compose echo request PDU
+        // compose the inner echo response PDU
+        // X.233 6.19 e) for the inner Echo Response packed in Echo Request PDU, an invalid value shall be set for segment length and checksum in the fixed part
         //let mut buffer: [u8; 64] = [0; 64]; //TODO optimize allocation
-        let data_num_bytes = erp_pdu.into_buf(buffer_scratch); //TODO optimize useless putting into buffer
+        let data_num_bytes = erp_pdu.into_buf(false, buffer_scratch); //TODO optimize useless putting into buffer
 
-        // the actual echo request PDU
+        // now the outer resp. actual echo request PDU
         let erq_pdu = Pdu::EchoRequestPDU {
             fixed: NFixedPart {
                 network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL,
@@ -112,6 +113,10 @@ impl<'a> Pdu<'_> {
     }
 
     //TODO is "reason for discard" part of the header, thus the header length - or only for error report PDU?
+    /* TODO According to 7.2.9 PDU checksum
+    The checksum is computed on the entire PDU header. For the Data, Echo Request, and Echo Reply PDUs, this includes
+    the segmentation and options parts (if present). For the Error Report PDU, this includes the reason for discard field as
+    well. */
     fn get_length_indicators(fixed: &NFixedPart<'_>, addr: &NAddressPart<'_>, seg: &Option<NSegmentationPart<'_>>, opts: &Option<NOptionsPart<'_>>, data: &Option<NDataPart<'_>>) -> (u8, u16, u8, u8) {
         return (
             // fixed part
@@ -285,7 +290,8 @@ struct NDataPart<'a> {
 
 impl Pdu<'_> {
     /// serialize struct into buffer, calculating a few fields along the way
-    pub fn into_buf(&mut self, buffer: &mut [u8]) -> usize {
+    /// Sender decides on the checksum option
+    pub fn into_buf(&mut self, checksum_option: bool, buffer: &mut [u8]) -> usize {
         //TODO check if given buffer is really < MTU
         match self {
             Self::Inactive{fixed_mini, data} => {
@@ -327,11 +333,7 @@ impl Pdu<'_> {
                 //buffer[6] = segment_length_ne[1];
                 buffer[5] = fixed_segment_length.to_be_bytes()[0];   // packet length incl. header
                 buffer[6] = fixed_segment_length.to_be_bytes()[1];
-                //TODO checksum - !!! for inner Echo Response packed in Eche Request PDU, the checksum shall be invalid
-                //TODO if marked as invalid, then keep it that way
-                //const FIXED_PART_YES_CHECKSUM = 1;
-                //const FIXED_PART_NO_CHECKSUM = 2;
-                let checksum_be = fixed.checksum.to_be_bytes(); //TODO calculate checksum
+                let checksum_be = fixed.checksum.to_be_bytes(); // should be set to the invalid value
                 buffer[7] = checksum_be[0];
                 buffer[8] = checksum_be[1];
                 bytes += 9;
@@ -371,10 +373,31 @@ impl Pdu<'_> {
                 // options part
                 if let Some(opts_inner) = opts {
                     bytes += opts_inner.len_bytes();
+                    //TODO compose the options
+                    todo!();
                 }
 
                 // reason for discard part
                 // N/A only for ER PDU
+
+                // now set the checksum for the header
+                if checksum_option {
+                    // calculate checksum
+                    let mut c_0: isize = 0;
+                    let mut c_1: isize = 0;
+                    for i in 0..bytes {
+                        c_0 = c_0 + buffer[i] as isize;
+                        c_1 = c_1 + c_0;
+                    }
+                    let mut x = ((bytes as isize - 8) * c_0 - c_1) % 255;
+                    let mut y = ((bytes as isize - 7) * (-c_0) + c_1) % 255;
+                    if x == 0 { x = 255; }
+                    if y == 0 { y = 255; }
+
+                    // assign into fixed part field
+                    buffer[7] = x as u8;
+                    buffer[8] = y as u8;
+                }
 
                 // data part
                 //TODO optimize
