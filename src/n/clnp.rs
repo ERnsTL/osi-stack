@@ -331,9 +331,9 @@ impl Pdu<'_> {
                 //TODO if marked as invalid, then keep it that way
                 //const FIXED_PART_YES_CHECKSUM = 1;
                 //const FIXED_PART_NO_CHECKSUM = 2;
-                let checksum_ne = fixed.checksum.to_be_bytes(); //TODO calculate checksum
-                buffer[7] = checksum_ne[0];
-                buffer[8] = checksum_ne[1];
+                let checksum_be = fixed.checksum.to_be_bytes(); //TODO calculate checksum
+                buffer[7] = checksum_be[0];
+                buffer[8] = checksum_be[1];
                 bytes += 9;
 
                 // address part
@@ -354,17 +354,17 @@ impl Pdu<'_> {
 
                 // segmentation part
                 if let Some(seg_inner) = seg {
-                    let data_unit_identifier_ne = seg_inner.data_unit_identifier.to_be_bytes();
-                    buffer[bytes] = data_unit_identifier_ne[0];
-                    buffer[bytes+1] = data_unit_identifier_ne[1];
+                    let data_unit_identifier_be = seg_inner.data_unit_identifier.to_be_bytes();
+                    buffer[bytes] = data_unit_identifier_be[0];
+                    buffer[bytes+1] = data_unit_identifier_be[1];
                     bytes += 2;
-                    let segment_offset_ne = seg_inner.segment_offset.to_be_bytes();
-                    buffer[bytes] = segment_offset_ne[0];
-                    buffer[bytes+1] = segment_offset_ne[1];
+                    let segment_offset_be = seg_inner.segment_offset.to_be_bytes();
+                    buffer[bytes] = segment_offset_be[0];
+                    buffer[bytes+1] = segment_offset_be[1];
                     bytes += 2;
-                    let total_length_ne = seg_inner.total_length.to_be_bytes();
-                    buffer[bytes] = total_length_ne[0];
-                    buffer[bytes+1] = total_length_ne[1];
+                    let total_length_be = seg_inner.total_length.to_be_bytes();
+                    buffer[bytes] = total_length_be[0];
+                    buffer[bytes+1] = total_length_be[1];
                     bytes += 2;
                 }
 
