@@ -443,6 +443,43 @@ impl Pdu<'_> {
     pub fn from_buf(buffer: &[u8]) -> Pdu {
         match buffer[0] {
             NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL => {
+                //TODO implement correct algorithm for PDU decomposition according to standard
+                // check for length and PDU type
+                let type_;
+                if buffer.len() >= 5 {
+                    // check octet 5
+                    (_, _, _, type_) = NFixedPart::decompose_octet5(&buffer[4]);
+                } else {
+                    // too short
+                    panic!();
+                }
+                println!("got PDU type_: {}", type_);
+                match type_ {
+                    TYPE_ER_PDU => {
+                        println!("got an error report PDU");
+                        todo!();
+                    },
+                    TYPE_DT_PDU => {
+                        println!("got a data PDU");
+                        todo!();
+                    },
+                    TYPE_MD_PDU => {
+                        println!("got a multicast data PDU");
+                        todo!();
+                    },
+                    TYPE_ERQ_PDU => {
+                        println!("got an echo request PDU");
+                        todo!();
+                    },
+                    TYPE_ERP_PDU => {
+                        println!("got an echo response PDU");
+                        todo!();
+                    },
+                    _ => {
+                        // unknown PDU type
+                        panic!();
+                    }
+                }
                 todo!();
             },
             NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE => {
