@@ -44,7 +44,7 @@ impl SubnetworkService for Service {
         // send NPDU (CLNP PDU)
         println!("writing NPDU...");
         let bytes = sn_userdata.into_buf(true, &mut remainder);
-        self.socket.write(&self.buffer[0..bytes + 14]).expect("could not write buffer into socket");    //TODO +14 is not cleanly abtracted
+        self.socket.write(&self.buffer[0..bytes + 14]).expect("could not write buffer into socket");    //TODO +14 is not cleanly abtracted //TODO handle network down - dont crash, but try again
 
         println!("flushing DL...");
         self.socket.flush().expect("failed to flush socket");
@@ -83,7 +83,7 @@ impl SubnetworkService for Service {
             loop {
                 let mut buffer = [0u8; 1500];
                 println!("reading frame...");
-                let num_bytes = socket.read(&mut buffer).expect("could not read DL frame from socket into buffer");
+                let num_bytes = socket.read(&mut buffer).expect("could not read DL frame from socket into buffer"); //TODO handle network down - dont crash, but try again
 
                 // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
                 let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(&buffer).expect("could not parse Ethernet2 header");
