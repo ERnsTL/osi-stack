@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Error};
 use advmac::MacAddr6;
 
 use super::{Nsap, Qos};
@@ -246,7 +246,7 @@ impl NFixedPart<'_> {
         );
     }
 
-    fn from_buf(buffer: &[u8]) -> Option<Self> {
+    fn from_buf(buffer: &[u8]) -> Result<(Self, bool, bool, usize), Error> {
         todo!()
     }
 }
@@ -260,7 +260,7 @@ struct NAddressPart<'a> {
 }
 
 impl NAddressPart<'_> {
-    fn from_buf(buffer: &[u8]) -> Option<(Self, usize)> {
+    fn from_buf(buffer: &[u8]) -> Result<(Self, usize), Error> {
         todo!();
     }
 }
@@ -273,7 +273,7 @@ struct NSegmentationPart<'a> {
 }
 
 impl NSegmentationPart<'_> {
-    fn from_buf(buffer: &[u8]) -> Option<Self> {
+    fn from_buf(buffer: &[u8]) -> Result<(Option<Self>, usize), Error> {
         todo!()
     }
 }
@@ -301,7 +301,7 @@ impl NOptionsPart<'_> {
         return bytes;
     }
 
-    fn from_buf(buffer: &[u8]) -> Option<Self> {
+    fn from_buf(buffer: &[u8]) -> Result<(Option<Self>, usize), Error> {
         todo!()
     }
 }
@@ -533,7 +533,7 @@ impl Pdu<'_> {
                         let data_part = NDataPart::from_buf(&buffer[9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length-1..9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length+data_part_length]).expect("failed to decompose data part");
                         //TODO check for overhead bytes
                         // assemble and return decomposed PDU
-                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: Some(options_part), discard: reason_for_discard_part, data: Some(data_part) };
+                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: Some(data_part) };
                         return pdu;
                     },
                     TYPE_ERP_PDU => {
