@@ -388,11 +388,11 @@ impl Pdu<'_> {
                     and X.233 Annex C Algorithms for PDU header error detection function
                     ideas in Wireshark OSI protocols dissector:  https://gitlab.com/wireshark/wireshark/-/blob/master/epan/dissectors/packet-osi.c#L113
                     efficient mod-255 computation:  https://stackoverflow.com/questions/68074457/efficient-modulo-255-computation
+                    difference modulos and remainder:  https://stackoverflow.com/questions/31210357/is-there-a-modulus-not-remainder-function-operation
                     */
                     //TODO optimize, this is the 1:1 naive "mod 255 arithmetic calculation variant" given in X.233
                     let mut c0: isize = 0;
                     let mut c1: isize = 0;
-                    println!("checksum:  got {} bytes header", bytes);
                     for i in 0..bytes {
                         c0 = c0 + buffer[i] as isize;
                         c1 = c1 + c0;
