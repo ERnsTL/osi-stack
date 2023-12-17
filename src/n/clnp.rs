@@ -260,8 +260,8 @@ struct NAddressPart<'a> {
 }
 
 impl NAddressPart<'_> {
-    fn from_buf(buffer: &[u8]) -> Option<Self> {
-        todo!()
+    fn from_buf(buffer: &[u8]) -> Option<(Self, usize)> {
+        todo!();
     }
 }
 
@@ -480,6 +480,23 @@ impl Pdu<'_> {
                     panic!();
                 }
                 println!("got PDU type_: {}", type_);
+                /*
+                // X.233 7.2.6.1 Segmentation permitted
+                if !sp_segmentation_permitted -> segmentation header is not there and value of segment_length ield gives the total length of the PDU see 7.2.8 PDU segment length (fixed part) and 7.4.3 Segment offset (segmentation part)
+                // X.233 7.6.6.2 More segments
+                More segments flag == 1 -> segmentation has occured.
+                More segments flag shall not be set to 1 if the segmentation permitted flag is not set to 1.
+                when the more segments flag is set to zero, te last octet of the data part is the last octet of the NSDU.
+                // X.233 7.2.8 PDU segment length
+                if full protocol is employed && PDU is not segmented, value of this field is identical to the value of the total length field located in the segmentation part of the header.
+                if non-segmenting protocol subset is employed -> no segmentation part. and segment length field specifies entire length of PDU (header and data, if present)
+                // X.233 7.4.1 General (Segmentation part)
+                if the SP flag is set in fixed part (7.2.6.1) == 1 the segmentation part of the header shall be present.
+                // X.233 7.5.1 General (Options part)
+                Options part length = PDU header length - (length of fixed part + length of address part + length of segmentation part)
+                // X.233 7.9.5 Reason for discard
+                This parameter is valid only for the Error Report PDU.
+                */
                 match type_ {   //TODO optimize does the ordering of match conditions matter? should most common case be first?
                     TYPE_ER_PDU => {
                         println!("got an error report PDU");
@@ -496,15 +513,26 @@ impl Pdu<'_> {
                     TYPE_ERQ_PDU => {
                         println!("got an echo request PDU");
                         // decompose PDU
-                        //TODO byte ranges//###
-                        let fixed_part = NFixedPart::from_buf(&buffer[0..9]).expect("failed to decompose fixed part");
-                        let address_part = NAddressPart::from_buf(&buffer[1..10]).expect("failed to decompose address part");
-                        let segmentation_part = NSegmentationPart::from_buf(&buffer[2..10]).expect("failed to decompose segmentation part");
-                        let options_part = NOptionsPart::from_buf(&buffer[3..11]).expect("failed to decompose options part");
-                        let reason_for_discard_part = None;
-                        let data_part = NDataPart::from_buf(&buffer[4..12]).expect("failed to decompose data part");
+                        //TODO check buffer length if buffer is actually that long//###
+                        let (fixed_part, segmentation_part_present, options_part_present, data_part_length) = NFixedPart::from_buf(&buffer[0..9]).expect("failed to decompose fixed part");
+                        let (address_part, address_part_length) = NAddressPart::from_buf(&buffer[9..buffer.len()]).expect("failed to decompose address part");
+                        let segmentation_part; let segmentation_part_length;
+                        if segmentation_part_present {
+                            (segmentation_part, segmentation_part_length) = NSegmentationPart::from_buf(&buffer[(9+address_part_length-1)..buffer.len()]).expect("failed to decompose segmentation part");
+                        } else {
+                            segmentation_part = None; segmentation_part_length = 0;
+                        }
+                        let options_part; let options_part_length;
+                        if options_part_present {
+                            (options_part, options_part_length) = NOptionsPart::from_buf(&buffer[3..11]).expect("failed to decompose options part");
+                        } else {
+                            options_part = None; options_part_length = 0;
+                        }
+                        let reason_for_discard_part = None; let reason_for_discard_part_length = 0; //NOTE: only for ER PDU
+                        let data_part = NDataPart::from_buf(&buffer[9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length-1..9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length+data_part_length]).expect("failed to decompose data part");
+                        //TODO check for overhead bytes
                         // assemble and return decomposed PDU
-                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: Some(segmentation_part), opts: Some(options_part), discard: reason_for_discard_part, data: Some(data_part) };
+                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: Some(options_part), discard: reason_for_discard_part, data: Some(data_part) };
                         return pdu;
                     },
                     TYPE_ERP_PDU => {
