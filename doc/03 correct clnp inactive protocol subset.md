@@ -16,7 +16,9 @@ Goals:
 
 ---
 
-* Solving 2 borrows needs to be done:  https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/
+* Solving 2 borrows needs to be done:
+  * https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/
+  * https://stackoverflow.com/questions/70050258/multiple-mutable-borrows-in-rust
   * For example ns.get_serviced_nsap() and ns.echo_request() results in 2 borrows on ns :-(
 * TODO the subnetwork service must be an active component (thread) blocking on socket.read() and being able to propagate up the stack.
   * read up is active
