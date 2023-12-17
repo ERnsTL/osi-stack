@@ -245,6 +245,10 @@ impl NFixedPart<'_> {
             octet5 & 0b00011111
         );
     }
+
+    fn from_buf(buffer: &[u8]) -> Option<Self> {
+        todo!()
+    }
 }
 
 #[derive(Debug)]
@@ -255,11 +259,23 @@ struct NAddressPart<'a> {
     source_address: Vec<u8>    //TODO optimize - owned only because of Pdu::to_buf() converts Nsap to [u8] and "data is owned by current function"
 }
 
+impl NAddressPart<'_> {
+    fn from_buf(buffer: &[u8]) -> Option<Self> {
+        todo!()
+    }
+}
+
 #[derive(Debug)]
 struct NSegmentationPart<'a> {
     data_unit_identifier: &'a u16,
     segment_offset: &'a u16,
     total_length: &'a u16
+}
+
+impl NSegmentationPart<'_> {
+    fn from_buf(buffer: &[u8]) -> Option<Self> {
+        todo!()
+    }
 }
 
 #[derive(Debug)]
@@ -284,6 +300,10 @@ impl NOptionsPart<'_> {
         }
         return bytes;
     }
+
+    fn from_buf(buffer: &[u8]) -> Option<Self> {
+        todo!()
+    }
 }
 
 #[derive(Debug)]
@@ -295,6 +315,12 @@ struct NReasonForDiscardPart<'a> {
 #[derive(Debug)]
 struct NDataPart<'a> {
     data: &'a [u8]
+}
+
+impl NDataPart<'_> {
+    fn from_buf(buffer: &[u8]) -> Option<Self> {
+        todo!()
+    }
 }
 
 impl Pdu<'_> {
@@ -454,7 +480,7 @@ impl Pdu<'_> {
                     panic!();
                 }
                 println!("got PDU type_: {}", type_);
-                match type_ {
+                match type_ {   //TODO optimize does the ordering of match conditions matter? should most common case be first?
                     TYPE_ER_PDU => {
                         println!("got an error report PDU");
                         todo!();
@@ -469,7 +495,17 @@ impl Pdu<'_> {
                     },
                     TYPE_ERQ_PDU => {
                         println!("got an echo request PDU");
-                        todo!();
+                        // decompose PDU
+                        //TODO byte ranges//###
+                        let fixed_part = NFixedPart::from_buf(&buffer[0..9]).expect("failed to decompose fixed part");
+                        let address_part = NAddressPart::from_buf(&buffer[1..10]).expect("failed to decompose address part");
+                        let segmentation_part = NSegmentationPart::from_buf(&buffer[2..10]).expect("failed to decompose segmentation part");
+                        let options_part = NOptionsPart::from_buf(&buffer[3..11]).expect("failed to decompose options part");
+                        let reason_for_discard_part = None;
+                        let data_part = NDataPart::from_buf(&buffer[4..12]).expect("failed to decompose data part");
+                        // assemble and return decomposed PDU
+                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: Some(segmentation_part), opts: Some(options_part), discard: reason_for_discard_part, data: Some(data_part) };
+                        return pdu;
                     },
                     TYPE_ERP_PDU => {
                         println!("got an echo response PDU");
@@ -477,9 +513,10 @@ impl Pdu<'_> {
                     },
                     _ => {
                         // unknown PDU type
-                        panic!();
+                        panic!("unknown CLNP NPDU type: {}", type_);
                     }
                 }
+                // return parsed PDU
                 todo!();
             },
             NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE => {
