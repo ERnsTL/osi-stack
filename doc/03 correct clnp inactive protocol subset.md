@@ -1,3 +1,5 @@
+# Iteration 3
+
 ## Plan
 
 Goals:
@@ -17,8 +19,8 @@ Goals:
 ---
 
 * Solving 2 borrows needs to be done:
-  * https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/
-  * https://stackoverflow.com/questions/70050258/multiple-mutable-borrows-in-rust
+  * [Thread 1](https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/)
+  * [Thread 2](https://stackoverflow.com/questions/70050258/multiple-mutable-borrows-in-rust)
   * For example ns.get_serviced_nsap() and ns.echo_request() results in 2 borrows on ns :-(
 * TODO the subnetwork service must be an active component (thread) blocking on socket.read() and being able to propagate up the stack.
   * read up is active
@@ -28,8 +30,8 @@ Goals:
   * services do periodic tasks themselves
 -> 2 threads per layer.
 * and we will need mailboxes - shared memory handover of PDUs.
-   * down the stack we package &upperpdu into larger PDU and pass it & down the stack. Upon write() the kernel makes a copy and returns the buffer.
-   * up the stack we trim things from the buffer - by creating an ever smaller view/slice into the layer2 buffer. The buffer remains in ownership of the SubnetworkService. Arriving in destination layer, the layer makes a copy and returns the buffer.
+  * down the stack we package &upperpdu into larger PDU and pass it & down the stack. Upon write() the kernel makes a copy and returns the buffer.
+  * up the stack we trim things from the buffer - by creating an ever smaller view/slice into the layer2 buffer. The buffer remains in ownership of the SubnetworkService. Arriving in destination layer, the layer makes a copy and returns the buffer.
 
 * add protocol server to be contacted via library and unix socket or should each application create its own stack? well, the network layer handles the network protocol for the whole system and we cannot have 1,2,3,5,10 sockets all bound to the Ethernet interface, each receiving the same packets and handling them x times.
 
@@ -43,19 +45,25 @@ Goals:
 * Allow parallel receiving and sending via inner_read and inner_write structs.
 * What about ARP and DNS to find hosts on the network?
 * Keeping track of connections DID (? TODO find it again)
-* Routing table dump as in https://datatracker.ietf.org/doc/rfc1574/
+* Routing table dump as in [RFC 1574](https://datatracker.ietf.org/doc/rfc1574/)
 * Implementation of ES-IS protocol (subnetwork coordination? finding other hosts and routes?).
 * Do End systems (ES) also send Hello's to each other? What do they do when they receive such and no Intermediate System (IS AKA Router) is present?
   * Yes, they do -> ISO 9542 availabe for free via ISO "Publicly Available Standards".
+
 ---
+
 04:
+
 * Change implementation to start of Non-Segmenting Protocol subset:
 * Add full Echo Request function.
 * Add full Echo Response function.
 * Add Error Reporting for everything else.
 * Send echo request, echo response.
+
 ---
+
 05:
+
 * Add full struct and decomposition of options part resp. parameter meanings.
 * Implement full protocol support.
 
