@@ -685,7 +685,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             source_address = &self.resolve_nsap(self.network_entity_title).expect("failed to get own NSAP");
         }
         //TODO super-clunky
-        print!("echo request from {}: ", source_address.to_string());
+        println!("echo request from {} to {}: ", source_address.to_string(), destination_address.to_string());
 
         // check length
         //TODO 6.19 d)
