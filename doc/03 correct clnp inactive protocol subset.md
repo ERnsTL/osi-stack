@@ -21,11 +21,6 @@ Goals:
    * down the stack we package &upperpdu into larger PDU and pass it & down the stack. Upon write() the kernel makes a copy and returns the buffer.
    * up the stack we trim things from the buffer - by creating an ever smaller view/slice into the layer2 buffer. The buffer remains in ownership of the SubnetworkService. Arriving in destination layer, the layer makes a copy and returns the buffer.
 
-
-* TODO X.213 Introduction "Any particular subnetwork may or may not support the OSI Network Service. The OSI Network Service may be
-provided by a combination of one or more subnetworks and optional additional functions between or outside these
-subnetworks."
-* should the SNDCF dissect the Ethernet header or the SN Service? AKA who are the parameters in the Service Primitive for? Request or Indication?
 * add protocol server to be contacted via library and unix socket or should each application create its own stack? well, the network layer handles the network protocol for the whole system and we cannot have 1,2,3,5,10 sockets all bound to the Ethernet interface, each receiving the same packets and handling them x times.
 
 * Implement correct PDU composition function for Inactive Protocol subset.

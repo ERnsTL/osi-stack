@@ -63,5 +63,3 @@ pub fn main() {
         thread::sleep(Duration::from_secs(2));
     }
 }
-
-// TODO add protocol server or should each application create its own interface?
