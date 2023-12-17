@@ -170,3 +170,5 @@ Goal:  list of tests (PICS)
   * So the Subnetwork Service is situated on the Data Link Layer.
   * Ethernet provides a Subnet Service and is located on the Data Link Layer.
 * On Linux/Unix, the reading of SN-UNITDATA indications is actually just reading from the socket, but it must be done in a preparatory converter method outside, because the parameters for the SN-UNITDATA primitive are not yet parsed AKA the DL PCI (header) with the source + destination address, EtherType are not parsed yet. Unfortunately, the Linux kernel nor libc do not directly call our OSI stack sn_unitdata_indication() method with the nicely-prepared parameters...
+* Observation that Wireshark can be modified to use the CLNP dissector for EtherType 0x8872 via Lua. Nice.
+* The OSI protocol byte-order is big-endian.
