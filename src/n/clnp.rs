@@ -496,6 +496,7 @@ impl Pdu<'_> {
                 Options part length = PDU header length - (length of fixed part + length of address part + length of segmentation part)
                 // X.233 7.9.5 Reason for discard
                 This parameter is valid only for the Error Report PDU.
+                // X.233 7.7.1 Structure (Data PDU) and 7.9.1 Structure (Error Report PDU) show nice overall figure of the variable byte indices in the PDU
                 */
                 match type_ {   //TODO optimize does the ordering of match conditions matter? should most common case be first?
                     TYPE_ER_PDU => {
