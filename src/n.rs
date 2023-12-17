@@ -79,7 +79,7 @@ impl Nsap {
 
 impl ToString for Nsap {
     fn to_string(&self) -> String {
-        format!("{}.{}.{}.{}", self.authority, self.area, self.sub_area, self.local_address.format_string(advmac::MacAddrFormat::Hexadecimal))
+        format!("{}.{}.{}.{}", self.authority, self.area, self.sub_area, self.local_address.format_string(advmac::MacAddrFormat::Hexadecimal).to_lowercase())
     }
 }
 
