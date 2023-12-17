@@ -3,13 +3,20 @@
 Goals:
 
 * Move CLNP and Ethernet source code into modules.
-* Add Network Service trait which the CLNP implements in order to make the Network Service exchangeable - since IS-IS is also on the network layer.
+* Add Network Service trait which the CLNP implements in order to make the Network Service exchangeable - since IS-IS and ES-IS etc. are also on the network layer.
 * Correct abstraction and encapsulation of Data Link Layer (Subnetwork Service) instead of being built-in into network service.
 * Request and indication between NS and SN - request for outgoing, indications for incoming.
   * X.233 clause 8.4 says that the requests go down the stack and indications go back up the stack.
 * Pull up NS and SN protocol support and internal architecture by implementing an incomplete version of Echo Request and Echo Response.
 * Add NPDU Echo Request and Echo Response composition, which incidentially is also for any normal Data PDU and possibly even Multicast Data PDU.
+* Change implementation to start of Non-Segmenting Protocol subset by working on Echo Request and Echo Response.
+* Add first Echo Request function and all the dependencies needed to achieve that.
+* Add first Echo Response function and all the dependencies needed to achieve that.
 
+---
+
+* Solving 2 borrows needs to be done:  https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/
+  * For example ns.get_serviced_nsap() and ns.echo_request() results in 2 borrows on ns :-(
 * TODO the subnetwork service must be an active component (thread) blocking on socket.read() and being able to propagate up the stack.
   * read up is active
 * TODO the network service is called by the upper layers "please deliver this", so it can be a dead method/function.
@@ -40,8 +47,8 @@ Goals:
 ---
 04:
 * Change implementation to start of Non-Segmenting Protocol subset:
-* Add Echo Request function.
-* Add Echo Response function.
+* Add full Echo Request function.
+* Add full Echo Response function.
 * Add Error Reporting for everything else.
 * Send echo request, echo response.
 ---
