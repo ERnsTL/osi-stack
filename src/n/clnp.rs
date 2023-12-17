@@ -29,7 +29,8 @@ const TYPE_ER_PDU: u8 = 0b00000001;     // error report
 const TYPE_ERQ_PDU: u8 = 0b00011110;    // echo request
 const TYPE_ERP_PDU: u8 = 0b00011111;    // echo response
 
-const ZERO: u8 = 0;
+const CHECKSUM_INVALID_IGNORE: u16 = 0;  // X.233 7.2.9 PDU checksum and X.233 6.19 e) for Echo Request function
+const SEGMENT_LENGTH_INVALID: u16 = 0;  // X.233 6.19 e) for Echo Request function
 
 impl<'a> Pdu<'_> {
     fn new_echo_request(
@@ -57,8 +58,8 @@ impl<'a> Pdu<'_> {
                 er_error_report: false,
                 type_: &TYPE_ERP_PDU,
                 octet5: &0,  // to be filled
-                segment_length: &0,  // an invalid value per 6.19 e)
-                checksum: &0,    // an invalid value per 6.19 e)
+                segment_length: &SEGMENT_LENGTH_INVALID,  // an invalid value per 6.19 e) which should also be transmitted this way TODO -> use Option
+                checksum: &CHECKSUM_INVALID_IGNORE,    // an invalid value per 6.19 e) which should also be transmitted this way TODO -> use Option
             },
             addr: NAddressPart {
                 destination_address_length_indicator: None,   // will be filled later
@@ -90,8 +91,8 @@ impl<'a> Pdu<'_> {
                 er_error_report: false,
                 type_: &TYPE_ERQ_PDU,
                 octet5: &0,  // will be filled
-                segment_length: &0,  // an invalid value per 6.19 e)
-                checksum: &0,    // an invalid value per 6.19 e)
+                segment_length: &SEGMENT_LENGTH_INVALID,  // should be filled like any other DT PDU - TODO
+                checksum: &CHECKSUM_INVALID_IGNORE,    // should be filled like any other DT PDU - TODO
             },
             addr: NAddressPart {
                 destination_address_length_indicator: None,   // will be filled
