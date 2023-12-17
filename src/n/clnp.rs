@@ -333,7 +333,7 @@ impl Pdu<'_> {
                 //buffer[6] = segment_length_ne[1];
                 buffer[5] = fixed_segment_length.to_be_bytes()[0];   // packet length incl. header
                 buffer[6] = fixed_segment_length.to_be_bytes()[1];
-                let checksum_be = fixed.checksum.to_be_bytes(); // should be set to the invalid value
+                let checksum_be = fixed.checksum.to_be_bytes(); // should be set to the invalid value - the checksum algorithm requires 0 for the checksum bytes at first
                 buffer[7] = checksum_be[0];
                 buffer[8] = checksum_be[1];
                 bytes += 9;
@@ -383,14 +383,22 @@ impl Pdu<'_> {
                 // now set the checksum for the header
                 if checksum_option {
                     // calculate checksum
-                    let mut c_0: isize = 0;
-                    let mut c_1: isize = 0;
+                    /*
+                    see X.233 6.11 PDU header error detection function 
+                    and X.233 Annex C Algorithms for PDU header error detection function
+                    ideas in Wireshark OSI protocols dissector:  https://gitlab.com/wireshark/wireshark/-/blob/master/epan/dissectors/packet-osi.c#L113
+                    efficient mod-255 computation:  https://stackoverflow.com/questions/68074457/efficient-modulo-255-computation
+                    */
+                    //TODO optimize, this is the 1:1 naive "mod 255 arithmetic calculation variant" given in X.233
+                    let mut c0: isize = 0;
+                    let mut c1: isize = 0;
+                    println!("checksum:  got {} bytes header", bytes);
                     for i in 0..bytes {
-                        c_0 = c_0 + buffer[i] as isize;
-                        c_1 = c_1 + c_0;
+                        c0 = c0 + buffer[i] as isize;
+                        c1 = c1 + c0;
                     }
-                    let mut x = ((bytes as isize - 8) * c_0 - c_1) % 255;
-                    let mut y = ((bytes as isize - 7) * (-c_0) + c_1) % 255;
+                    let mut x = ((bytes as isize - 8) * c0 - c1).rem_euclid(255);
+                    let mut y = ((bytes as isize - 7) * (-1 * c0) + c1).rem_euclid(255);   // % operator would give wrong result for negative y
                     if x == 0 { x = 255; }
                     if y == 0 { y = 255; }
 
