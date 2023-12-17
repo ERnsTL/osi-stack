@@ -177,7 +177,7 @@ struct NFixedPartMiniForInactive<'a> {
 }
 
 // TODO was not possible to have it as an enum and match on it, comparing to u8
-const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL: u8 = 0b1000_0001;
+const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL: u8 = 0b1000_0001;    // used for both full and non-segmenting protocol subset
 const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE: u8 = 0b0000_0000;
 
 #[derive(Debug)]
@@ -235,6 +235,15 @@ impl NFixedPart<'_> {
     ) -> u8  {
         // simply overwrites any data in bits 1,2,3 if number in type uses more than 5 bits
         return sp_segmentation_permitted as u8 | ms_more_segments as u8 | er_error_report as u8| type_;
+    }
+
+    fn decompose_octet5(octet5: &u8) -> (bool, bool, bool, u8) {
+        return (
+            (octet5 & 0b01111111 >> 7) != 0,
+            (octet5 & 0b10111111 >> 6) != 0,
+            (octet5 & 0b11011111 >> 5) != 0,
+            octet5 & 0b00011111
+        );
     }
 }
 
