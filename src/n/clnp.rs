@@ -321,16 +321,16 @@ impl Pdu<'_> {
                 buffer[2] = *fixed.version_protocol_id_extension;
                 buffer[3] = *fixed.lifetime;
                 buffer[4] = octet5;
-                //let segment_length_ne = fixed.segment_length.to_ne_bytes();
+                //let segment_length_ne = fixed.segment_length.to_be_bytes();
                 //buffer[5] = segment_length_ne[0];   // packet length incl. header   //TODO calculate ;-)
                 //buffer[6] = segment_length_ne[1];
-                buffer[5] = fixed_segment_length.to_ne_bytes()[0];   // packet length incl. header
-                buffer[6] = fixed_segment_length.to_ne_bytes()[1];
+                buffer[5] = fixed_segment_length.to_be_bytes()[0];   // packet length incl. header
+                buffer[6] = fixed_segment_length.to_be_bytes()[1];
                 //TODO checksum - !!! for inner Echo Response packed in Eche Request PDU, the checksum shall be invalid
                 //TODO if marked as invalid, then keep it that way
                 //const FIXED_PART_YES_CHECKSUM = 1;
                 //const FIXED_PART_NO_CHECKSUM = 2;
-                let checksum_ne = fixed.checksum.to_ne_bytes(); //TODO calculate checksum
+                let checksum_ne = fixed.checksum.to_be_bytes(); //TODO calculate checksum
                 buffer[7] = checksum_ne[0];
                 buffer[8] = checksum_ne[1];
                 bytes += 9;
@@ -353,15 +353,15 @@ impl Pdu<'_> {
 
                 // segmentation part
                 if let Some(seg_inner) = seg {
-                    let data_unit_identifier_ne = seg_inner.data_unit_identifier.to_ne_bytes();
+                    let data_unit_identifier_ne = seg_inner.data_unit_identifier.to_be_bytes();
                     buffer[bytes] = data_unit_identifier_ne[0];
                     buffer[bytes+1] = data_unit_identifier_ne[1];
                     bytes += 2;
-                    let segment_offset_ne = seg_inner.segment_offset.to_ne_bytes();
+                    let segment_offset_ne = seg_inner.segment_offset.to_be_bytes();
                     buffer[bytes] = segment_offset_ne[0];
                     buffer[bytes+1] = segment_offset_ne[1];
                     bytes += 2;
-                    let total_length_ne = seg_inner.total_length.to_ne_bytes();
+                    let total_length_ne = seg_inner.total_length.to_be_bytes();
                     buffer[bytes] = total_length_ne[0];
                     buffer[bytes+1] = total_length_ne[1];
                     bytes += 2;

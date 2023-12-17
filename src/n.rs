@@ -58,14 +58,15 @@ impl Nsap {
         //return one;
 
         let mut buffer = Vec::with_capacity(self.len());
-        /* NOTE: with capacity we cannot assign buffer[..] directly, have to push()
-        and have to push each byte individually because if we push [u8;2] as first one, then it only wants further [u8;2] */
-        buffer.push(self.authority.to_ne_bytes()[0]);
-        buffer.push(self.authority.to_ne_bytes()[1]);
-        buffer.push(self.area.to_ne_bytes()[0]);
-        buffer.push(self.area.to_ne_bytes()[1]);
-        buffer.push(self.sub_area.to_ne_bytes()[0]);
-        buffer.push(self.sub_area.to_ne_bytes()[1]);
+        /* NOTE: with capacity we cannot assign buffer[..] directly, because len <= cap. so we have to push()
+        as long as len <= cap there will be no allocations.
+        have to push each byte individually because if we push [u8;2] as first one, then it only wants further [u8;2] */
+        buffer.push(self.authority.to_be_bytes()[0]);
+        buffer.push(self.authority.to_be_bytes()[1]);
+        buffer.push(self.area.to_be_bytes()[0]);
+        buffer.push(self.area.to_be_bytes()[1]);
+        buffer.push(self.sub_area.to_be_bytes()[0]);
+        buffer.push(self.sub_area.to_be_bytes()[1]);
         buffer.push(self.local_address.to_array()[0]);
         buffer.push(self.local_address.to_array()[1]);
         buffer.push(self.local_address.to_array()[2]);
