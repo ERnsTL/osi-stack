@@ -12,6 +12,7 @@ Goals:
 * Change implementation to start of Non-Segmenting Protocol subset by working on Echo Request and Echo Response.
 * Add first Echo Request function and all the dependencies needed to achieve that.
 * Add first Echo Response function and all the dependencies needed to achieve that.
+* Achieve ability for two systems to send and receive Echo Requests and Echo Responses to each other.
 
 ---
 
