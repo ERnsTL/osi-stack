@@ -36,17 +36,17 @@ impl SubnetworkService for Service {
             source: sn_source_address.to_array(),
             ether_type: crate::dl::ETHER_TYPE_CLNP,
         };
-        println!("writing SNSDU...");
+        //println!("writing SNSDU...");
         let mut remainder = pkt_out.write_to_slice(&mut self.buffer).expect("failed writing SNSDU into buffer");
         //pkt_out.write(&mut self.socket).expect("failed writing frame into socket");
         //TODO optimize is ^ cheaper or below's sn_userdata pdu.into_buf() ?
 
         // send NPDU (CLNP PDU)
-        println!("writing NPDU...");
+        //println!("writing NPDU...");
         let bytes = sn_userdata.into_buf(true, &mut remainder);
         self.socket.write(&self.buffer[0..bytes + 14]).expect("could not write buffer into socket");    //TODO +14 is not cleanly abtracted //TODO handle network down - dont crash, but try again
 
-        println!("flushing DL...");
+        //println!("flushing DL...");
         self.socket.flush().expect("failed to flush socket");
     }
 

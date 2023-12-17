@@ -29,7 +29,7 @@ pub trait NetworkService<'a> {
         source_address_index: Option<usize>,
         options: Option<NOptionsPart>,
         ns_quality_of_service: &Qos
-    );
+    ); //TODO clunky to return the sending Nsap, and even that is not possible inside echo_request() this should be known beforehand, but alas, Rust's no 2nd borrow on ns variable
 }
 
 //TODO implement full NSAP
@@ -74,6 +74,12 @@ impl Nsap {
         buffer.push(self.local_address.to_array()[4]);
         buffer.push(self.local_address.to_array()[5]);
         return buffer;
+    }
+}
+
+impl ToString for Nsap {
+    fn to_string(&self) -> String {
+        format!("{}.{}.{}.{}", self.authority, self.area, self.sub_area, self.local_address.format_string(advmac::MacAddrFormat::Hexadecimal))
     }
 }
 

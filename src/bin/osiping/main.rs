@@ -42,8 +42,10 @@ pub fn main() {
 
     // send request to other host
     let qos = n::Qos{};
+    //let source_nsap = ns.get_serviced_nsap().expect("failed to get own serviced NSAP");
+    //TODO fix ^ 2nd borrow, Rust's borrow checker cannot look into functions which fields they actually lock
     loop {
-        print!("sending packet...");
+        //println!("echo request from {}:", source_nsap.to_string());
         /*
         ns.n_unitdata_request(
             dest_host,  //TODO change to proper, which is NSAP address - there is no echo service on DL layer
@@ -51,14 +53,13 @@ pub fn main() {
             r"test".as_bytes()
         );
         */
-        ns.echo_request(
+        let source_nsap = ns.echo_request(
             Some(dest_host.to_owned()), //TODO optimize clone
             None,
-            Some(0),
+            Some(0),    //TODO just to avoid 2nd borrow on whole of ns
             None,
             &qos
         );
-        println!("done");
 
         thread::sleep(Duration::from_secs(2));
     }

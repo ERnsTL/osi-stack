@@ -456,7 +456,7 @@ impl Pdu<'_> {
 
 pub struct Service<'a> {
     // internal state
-    serviced_nsaps: Vec<Nsap>,
+    pub serviced_nsaps: Vec<Nsap>,  //TODO should be via get_serviced_nsap() but this would mean a 2nd borrow (borrow-checker understands direct variable access but if it is done via a method like get_serviced_nsap() then locks the whole service variable and we have a 2nd borrow)
     known_hosts: HashMap<String, Nsap>,
     network_entity_title: &'a str,   // own title
 
@@ -572,6 +572,8 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         } else {
             source_address = &self.resolve_nsap(self.network_entity_title).expect("failed to get own NSAP");
         }
+        //TODO super-clunky
+        print!("echo request from {}: ", source_address.to_string());
 
         // check length
         //TODO 6.19 d)
