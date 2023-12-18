@@ -4,6 +4,19 @@ ISO/ITU-T/IETF OSI (Open Systems Interconnection) stack implementation with appl
 
 Status:  Work in progress.
 
+Currently featuring:
+
+* parts of CLNP over ...
+* Ethernet Subnetwork Service
+* via Ethernet2 header.
+* Simple static resolving of system-title based NSAP to SNPA address.
+* Simple OSI ping application
+
+Working on:
+
+* CLNP non-segmenting subset and then
+* CLNP full protocol.
+
 Goal:
 
 * Full coverage of the OSI protocols up to CASE (ACSE, RTSE, ROSE).
@@ -19,19 +32,6 @@ Goal:
 * X.400 EDI
 * Linux kernel module for layer 2,3,4
 * multi-platform support (Linux, Mac, Windows)
-
-Currently featuring:
-
-* parts of CLNP over ...
-* Ethernet Subnetwork Service
-* via Ethernet2 header.
-* Simple static resolving of system-title based NSAP to SNPA address.
-* Simple OSI ping application
-
-Working on:
-
-* CLNP non-segmenting subset and then
-* CLNP full protocol.
 
 Written in Rust, with planned binding for C and further, more programming languages.
 
