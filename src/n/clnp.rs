@@ -304,10 +304,10 @@ impl<'a> Pdu<'_> {
                 sp_segmentation_permitted: false,   // setting to false for now TODO
                 ms_more_segments: false,    // X.233 6.19 e) value of zero
                 er_error_report: false,
-                type_: &TYPE_ERP_PDU,
+                type_: TYPE_ERP_PDU,
                 octet5: &0,  // to be filled
-                segment_length: &SEGMENT_LENGTH_INVALID,  // an invalid value per 6.19 e) which should also be transmitted this way TODO -> use Option
-                checksum: &CHECKSUM_INVALID_IGNORE,    // an invalid value per 6.19 e) which should also be transmitted this way TODO -> use Option
+                segment_length: None,  // an invalid value per 6.19 e) which should also be transmitted this way
+                checksum: CHECKSUM_INVALID_IGNORE,    // an invalid value per 6.19 e) which should also be transmitted this way TODO -> use Option
             },
             addr: NAddressPart {
                 destination_address_length_indicator: None,   // will be filled later
@@ -338,10 +338,10 @@ impl<'a> Pdu<'_> {
                 sp_segmentation_permitted: false,   // setting to false for now TODO - depending on network service setting / protocol subset
                 ms_more_segments: false,   // will be filled
                 er_error_report: false,
-                type_: &TYPE_ERQ_PDU,
+                type_: TYPE_ERQ_PDU,
                 octet5: &0,  // will be filled
-                segment_length: &SEGMENT_LENGTH_INVALID,  // should be filled like any other DT PDU - TODO
-                checksum: &CHECKSUM_INVALID_IGNORE,    // should be filled like any other DT PDU - TODO
+                segment_length: None,  // should be filled like any other DT PDU - TODO
+                checksum: CHECKSUM_INVALID_IGNORE,    // should be filled like any other DT PDU - TODO
             },
             addr: NAddressPart {
                 destination_address_length_indicator: None,   // will be filled
@@ -439,11 +439,11 @@ struct NFixedPart<'a> {
     sp_segmentation_permitted: bool,   // 1 bit
     ms_more_segments: bool,   // 1 bit
     er_error_report: bool,  // 1 bit
-    type_: &'a u8, // 5 bits only!
+    type_: u8, // 5 bits only!
     /// contains ^ sub-bit values
     octet5: &'a u8,
-    segment_length: &'a u16,
-    checksum: &'a u16
+    segment_length: Option<u16>,
+    checksum: (&'a u8, &'a u8)  // these are two checksum bytes handled separately according to the algorithm in X.233 Annex C
 }
 
 enum SpSegmentationPermittedBit {
