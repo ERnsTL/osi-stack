@@ -511,9 +511,9 @@ impl NFixedPart<'_> {
 
     fn decompose_octet5(octet5: &u8) -> (bool, bool, bool, u8) {
         return (
-            (octet5 & 0b01111111 >> 7) != 0,
-            (octet5 & 0b10111111 >> 6) != 0,
-            (octet5 & 0b11011111 >> 5) != 0,
+            (octet5 & 0b10000000 >> 7) != 0,
+            (octet5 & 0b01000000 >> 6) != 0,
+            (octet5 & 0b00100000 >> 5) != 0,
             octet5 & 0b00011111
         );
     }
