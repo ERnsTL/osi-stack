@@ -494,8 +494,37 @@ impl NFixedPart<'_> {
         );
     }
 
-    fn from_buf(buffer: &[u8]) -> Result<(Self, bool, bool, usize), Error> {
-        todo!()
+    /// returns the fixed fixed part,
+    /// segmentation_part_present: bool
+    fn from_buf<'a>(buffer: &'a [u8]) -> Result<(NFixedPart<'a>, bool), Error> {
+        // checks
+        if buffer.len() < 9 {
+            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "given header too short"));
+        }
+
+        // parse fixed part
+        let (fixed_part_sp_segmentation_permitted,
+            fixed_part_ms_more_segments,
+            fixed_part_er_error_report,
+            fixed_part_type_) = NFixedPart::decompose_octet5(&buffer[4]);
+        let fixed_part = NFixedPart {
+            network_layer_protocol_identifier: &buffer[0],
+            length_indicator: Some(&buffer[1]),
+            version_protocol_id_extension: &buffer[2],
+            lifetime: &buffer[3],
+            sp_segmentation_permitted: fixed_part_sp_segmentation_permitted,
+            ms_more_segments: fixed_part_ms_more_segments,
+            er_error_report: fixed_part_er_error_report,
+            type_: fixed_part_type_,
+            octet5: &buffer[4],
+            segment_length: Some(u16::from_be_bytes([buffer[5], buffer[6]].try_into().expect("failed to convert segment length from be bytes"))),
+            checksum: (&buffer[7], &buffer[8]),
+        };
+
+        return Ok((
+            fixed_part,
+            fixed_part_sp_segmentation_permitted
+        ));
     }
 }
 
