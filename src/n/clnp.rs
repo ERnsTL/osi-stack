@@ -660,7 +660,7 @@ struct NDataPart<'a> {
 impl NDataPart<'_> {
     fn from_buf<'a>(buffer: &'a [u8], data_part_length: usize) -> Result<Option<NDataPart<'a>>, Error> {
         if buffer.len() < data_part_length {
-            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "given segmentation part buffer too short"));
+            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "given data part buffer too short"));
         }
         return Ok(Some(NDataPart {
             data: &buffer[0..data_part_length],
