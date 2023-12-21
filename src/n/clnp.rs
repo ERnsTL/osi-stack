@@ -11,13 +11,13 @@ pub fn parse_macaddr(instr: &str) -> Result<MacAddr6, advmac::ParseError> {
 #[derive(Debug)]
 pub enum Pdu<'a> {
     Inactive { fixed_mini: NFixedPartMiniForInactive<'a>, data: NDataPart<'a> },
-    NDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
+    NDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
     // no segmentation, but reason for discard is mandatory
     ErrorReportPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, opts: Option<NOptionsPart<'a>>, discard: NReasonForDiscardPart<'a>, data: Option<NDataPart<'a>> },
     // these are the same as DataPDU / DT PDU
-    EchoRequestPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
-    EchoResponsePDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
-    MulticastDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart<'a>>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> }
+    EchoRequestPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
+    EchoResponsePDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> },
+    MulticastDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>> }
 }
 
 const VERSION_PROTOCOL_ID_EXTENSION_1: u8 = 0b0000_0001;
@@ -365,7 +365,7 @@ impl<'a> Pdu<'_> {
     The checksum is computed on the entire PDU header. For the Data, Echo Request, and Echo Reply PDUs, this includes
     the segmentation and options parts (if present). For the Error Report PDU, this includes the reason for discard field as
     well. */
-    fn get_length_indicators(fixed: &NFixedPart<'_>, addr: &NAddressPart<'_>, seg: &Option<NSegmentationPart<'_>>, opts: &Option<NOptionsPart<'_>>, data: &Option<NDataPart<'_>>) -> (u8, u16, u8, u8) {
+    fn get_length_indicators(fixed: &NFixedPart<'_>, addr: &NAddressPart<'_>, seg: &Option<NSegmentationPart>, opts: &Option<NOptionsPart<'_>>, data: &Option<NDataPart<'_>>) -> (u8, u16, u8, u8) {
         return (
             // fixed part
 
@@ -569,15 +569,28 @@ impl NAddressPart<'_> {
 }
 
 #[derive(Debug)]
-struct NSegmentationPart<'a> {
-    data_unit_identifier: &'a u16,
-    segment_offset: &'a u16,
-    total_length: &'a u16
+struct NSegmentationPart {
+    data_unit_identifier: u16,  // did not find a way in from_buf() to reference into the buffer directly and get out an &'a u16 with BE to NE (native endian) conversion, therefore no &u16 but u16 //TODO optimize
+    segment_offset: u16,
+    total_length: u16
 }
 
-impl NSegmentationPart<'_> {
-    fn from_buf(buffer: &[u8]) -> Result<(Option<Self>, usize), Error> {
-        todo!()
+/// returns the segmentation part,
+/// segmentation_part_length: usize
+impl NSegmentationPart {
+    fn from_buf<'a>(buffer: &[u8]) -> Result<(Option<NSegmentationPart>, usize), Error> {
+        if buffer.len() < 6 {
+            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "given segmentation part buffer too short"));
+        }
+        let segmentation_part = NSegmentationPart {
+            data_unit_identifier: u16::from_be_bytes(buffer[0..1].try_into().unwrap()),    //TODO optimize these calls
+            segment_offset: u16::from_be_bytes(buffer[2..3].try_into().unwrap()),
+            total_length: u16::from_be_bytes(buffer[4..5].try_into().unwrap()),
+        };
+        return Ok((
+            Some(segmentation_part),    // decision about None or Some is made outside in Pdu::from_buf()
+            6
+        ));
     }
 }
 
