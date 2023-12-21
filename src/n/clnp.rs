@@ -494,7 +494,7 @@ impl NFixedPart<'_> {
         );
     }
 
-    /// returns the fixed fixed part,
+    /// returns the fixed part,
     /// segmentation_part_present: bool
     fn from_buf<'a>(buffer: &'a [u8]) -> Result<(NFixedPart<'a>, bool), Error> {
         // checks
@@ -536,9 +536,35 @@ struct NAddressPart<'a> {
     source_address: Vec<u8>    //TODO optimize - owned only because of Pdu::to_buf() converts Nsap to [u8] and "data is owned by current function"
 }
 
+/// returns the address part,
+/// address_part_length: usize
 impl NAddressPart<'_> {
-    fn from_buf(buffer: &[u8]) -> Result<(Self, usize), Error> {
-        todo!();
+    fn from_buf<'a>(buffer: &'a [u8]) -> Result<(NAddressPart<'a>, usize), Error> {
+        //TODO having destination_address_length_indicator and source_address_length_indicator be &u8 causes all kinds of conversions, casts and temporary values
+        if buffer.len() < 1 {   // 1 byte for each NSAP at the very minimum
+            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "given address part buffer too short at all"));
+        }
+        let destination_address_length_indicator: &u8 = &buffer[0];
+        if buffer.len() < 1 + (*destination_address_length_indicator as usize) {
+            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "given address part buffer too short to accomodate destination address"));
+        }
+        let destination_address = &buffer[1..1+(*destination_address_length_indicator as usize)];
+        let source_address_length_indicator: &u8 = &buffer[1+(*destination_address_length_indicator as usize)];
+        if buffer.len() < 1 + (*destination_address_length_indicator as usize) + 1 + (*source_address_length_indicator as usize) {
+            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "given address part buffer too short to accomodate source address"));
+        }
+        let source_address = &buffer[1+(*destination_address_length_indicator as usize)+1..1+(*destination_address_length_indicator as usize)+1+(*source_address_length_indicator as usize)];
+
+        let address_part = NAddressPart {
+            destination_address_length_indicator: Some(destination_address_length_indicator),
+            destination_address: destination_address.to_vec(),  //TODO optimize - does this copy?
+            source_address_length_indicator: Some(source_address_length_indicator),
+            source_address: source_address.to_vec(),    //TODO optimize - does this copy?
+        };
+        return Ok((
+            address_part,
+            1+(*destination_address_length_indicator as usize)+1+(*source_address_length_indicator as usize)
+        ));
     }
 }
 
