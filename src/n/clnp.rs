@@ -29,10 +29,258 @@ const TYPE_ER_PDU: u8 = 0b00000001;     // error report
 const TYPE_ERQ_PDU: u8 = 0b00011110;    // echo request
 const TYPE_ERP_PDU: u8 = 0b00011111;    // echo response
 
-const CHECKSUM_INVALID_IGNORE: u16 = 0;  // X.233 7.2.9 PDU checksum and X.233 6.19 e) for Echo Request function
+const CHECKSUM_INVALID_IGNORE: (&u8, &u8) = (&0, &0);  // X.233 7.2.9 PDU checksum and X.233 6.19 e) for Echo Request function
 const SEGMENT_LENGTH_INVALID: u16 = 0;  // X.233 6.19 e) for Echo Request function
 
 impl<'a> Pdu<'_> {
+    /// serialize struct into buffer, calculating a few fields along the way
+    /// Sender decides on the checksum option
+    pub fn into_buf(&mut self, checksum_option: bool, buffer: &mut [u8]) -> usize {
+        //TODO check if given buffer is really < MTU
+        match self {
+            Self::Inactive{fixed_mini, data} => {
+                buffer[0] = *fixed_mini.network_layer_protocol_identifier as u8;
+                //TODO optimize
+                for i in 0..data.data.len() {
+                    buffer[i+1] = data.data[i];
+                }
+                return 1 + data.data.len();
+            },
+            Self::NDataPDU { fixed, addr, seg, opts, discard, data } |
+            Self::EchoRequestPDU { fixed, addr, seg, opts, discard, data } |
+            Self::EchoResponsePDU { fixed, addr, seg, opts, discard, data } => {
+                // prepare octet 5
+                let octet5 = NFixedPart::compose_octet5_unchecked(
+                    //TODO dont know of these conversions are really needed
+                    if fixed.sp_segmentation_permitted { SpSegmentationPermittedBit::ONE } else { SpSegmentationPermittedBit::ZERO },
+                    if fixed.ms_more_segments { MsMoreSegmentsBit::ONE } else { MsMoreSegmentsBit::ZERO },
+                    if fixed.er_error_report { ErErrorReportBit::ONE } else { ErErrorReportBit::ZERO },
+                    fixed.type_
+                );
+
+                // prepare length indicators
+                //TODO because of setting the values here we have to make it &mut self - make it possible to use &self?
+                //TODO regarding length indicators calculation: is "reason for discard" part of the header as per Standard? Or is this actually part of the Data part of ER PDU?
+                let (fixed_length_indicator, fixed_segment_length, addr_destination_address_length_indicator, addr_source_address_length_indicator) = Pdu::get_length_indicators(&fixed, &addr, &seg, &opts, &data);
+
+                // write into output buffer
+                let mut bytes = 0;
+
+                // fixed part
+                buffer[0] = *fixed.network_layer_protocol_identifier;
+                buffer[1] = fixed_length_indicator; // header length
+                buffer[2] = *fixed.version_protocol_id_extension;
+                buffer[3] = *fixed.lifetime;
+                buffer[4] = octet5;
+                //let segment_length_ne = fixed.segment_length.to_be_bytes();
+                //buffer[5] = segment_length_ne[0];   // packet length incl. header   //TODO calculate ;-)
+                //buffer[6] = segment_length_ne[1];
+                buffer[5] = fixed_segment_length.to_be_bytes()[0];   // packet length incl. header  //TODO should not be calculated in the case of Echo Request PDU which should contain an Echo Response PDU with invalid checksum and segment length
+                buffer[6] = fixed_segment_length.to_be_bytes()[1];
+                buffer[7] = *fixed.checksum.0;  // should be set to the invalid value - the checksum algorithm requires 0 for the checksum bytes at first
+                buffer[8] = *fixed.checksum.1;
+                bytes += 9;
+
+                // address part
+                //destination address
+                buffer[9] = addr_destination_address_length_indicator;
+                bytes += 1;
+                for i in 0..addr.destination_address.len() {
+                    buffer[bytes+i] = addr.destination_address[i];
+                }
+                bytes += addr_destination_address_length_indicator as usize;   //TODO optimize
+                // source address
+                buffer[bytes] = addr_source_address_length_indicator;
+                bytes += 1;
+                for i in 0..addr.source_address.len() {
+                    buffer[bytes+i] = addr.source_address[i];
+                }
+                bytes += addr_source_address_length_indicator as usize;    //TODO optimize
+
+                // segmentation part
+                if let Some(seg_inner) = seg {
+                    let data_unit_identifier_be = seg_inner.data_unit_identifier.to_be_bytes();
+                    buffer[bytes] = data_unit_identifier_be[0];
+                    buffer[bytes+1] = data_unit_identifier_be[1];
+                    bytes += 2;
+                    let segment_offset_be = seg_inner.segment_offset.to_be_bytes();
+                    buffer[bytes] = segment_offset_be[0];
+                    buffer[bytes+1] = segment_offset_be[1];
+                    bytes += 2;
+                    let total_length_be = seg_inner.total_length.to_be_bytes();
+                    buffer[bytes] = total_length_be[0];
+                    buffer[bytes+1] = total_length_be[1];
+                    bytes += 2;
+                }
+
+                // options part
+                if let Some(opts_inner) = opts {
+                    bytes += opts_inner.len_bytes();
+                    //TODO compose the options
+                    todo!();
+                }
+
+                // reason for discard part
+                // N/A only for ER PDU
+
+                // now set the checksum for the header
+                if checksum_option {
+                    // calculate checksum
+                    /*
+                    see X.233 6.11 PDU header error detection function
+                    and X.233 Annex C Algorithms for PDU header error detection function
+                    ideas in Wireshark OSI protocols dissector:  https://gitlab.com/wireshark/wireshark/-/blob/master/epan/dissectors/packet-osi.c#L113
+                    efficient mod-255 computation:  https://stackoverflow.com/questions/68074457/efficient-modulo-255-computation
+                    difference modulos and remainder:  https://stackoverflow.com/questions/31210357/is-there-a-modulus-not-remainder-function-operation
+                    */
+                    //TODO optimize, this is the 1:1 naive "mod 255 arithmetic calculation variant" given in X.233
+                    let mut c0: isize = 0;
+                    let mut c1: isize = 0;
+                    for i in 0..bytes {
+                        c0 = c0 + buffer[i] as isize;
+                        c1 = c1 + c0;
+                    }
+                    let mut x = ((bytes as isize - 8) * c0 - c1).rem_euclid(255);
+                    let mut y = ((bytes as isize - 7) * (-1 * c0) + c1).rem_euclid(255);   // % operator would give wrong result for negative y
+                    if x == 0 { x = 255; }
+                    if y == 0 { y = 255; }
+
+                    // assign into fixed part field
+                    buffer[7] = x as u8;
+                    buffer[8] = y as u8;
+                }
+
+                // data part
+                //TODO optimize
+                if let Some(data_inner) = data {
+                    for i in 0..data_inner.data.len() {
+                        buffer[bytes+i] = data_inner.data[i];
+                    }
+                    return bytes + data_inner.data.len();
+                } else {
+                    return bytes;   //TODO
+                }
+            },
+            //TODO are data PDU, ERQ, ERP PDU *and* multicast serialized in the same way?
+            Self::MulticastDataPDU { fixed, addr, seg, opts, discard, data } => {
+                todo!();
+            },
+            Self::ErrorReportPDU { fixed, addr, opts, discard, data } => {
+                todo!();
+                //param: &'a NParameter<'a>   //TODO enforce that here only parameter code "1100 0001" is allowed
+            },
+            _ => { todo!(); }
+        }
+        //matches!(self, Self::Inactive { .. })
+    }
+
+    pub fn from_buf(buffer: &[u8]) -> Pdu {
+        match buffer[0] {
+            NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL => {
+                //TODO implement correct algorithm for PDU decomposition according to standard
+                // check for length and PDU type
+                let type_;
+                if buffer.len() >= 5 {
+                    // check octet 5
+                    (_, _, _, type_) = NFixedPart::decompose_octet5(&buffer[4]);
+                } else {
+                    // too short
+                    panic!();
+                }
+                println!("got PDU type_: {}", type_);
+                /*
+                // X.233 7.2.6.1 Segmentation permitted
+                if !sp_segmentation_permitted -> segmentation header is not there and value of segment_length ield gives the total length of the PDU see 7.2.8 PDU segment length (fixed part) and 7.4.3 Segment offset (segmentation part)
+                // X.233 7.6.6.2 More segments
+                More segments flag == 1 -> segmentation has occured.
+                More segments flag shall not be set to 1 if the segmentation permitted flag is not set to 1.
+                when the more segments flag is set to zero, te last octet of the data part is the last octet of the NSDU.
+                // X.233 7.2.8 PDU segment length
+                if full protocol is employed && PDU is not segmented, value of this field is identical to the value of the total length field located in the segmentation part of the header.
+                if non-segmenting protocol subset is employed -> no segmentation part. and segment length field specifies entire length of PDU (header and data, if present)
+                // X.233 7.4.1 General (Segmentation part)
+                if the SP flag is set in fixed part (7.2.6.1) == 1 the segmentation part of the header shall be present.
+                // X.233 7.5.1 General (Options part)
+                Options part length = PDU header length - (length of fixed part + length of address part + length of segmentation part)
+                // X.233 7.9.5 Reason for discard
+                This parameter is valid only for the Error Report PDU.
+                // X.233 7.7.1 Structure (Data PDU) and 7.9.1 Structure (Error Report PDU) show nice overall figure of the variable byte indices in the PDU
+                */
+                match type_ {   //TODO optimize does the ordering of match conditions matter? should most common case be first?
+                    TYPE_ER_PDU => {
+                        println!("got an error report PDU");
+                        todo!();
+                    },
+                    TYPE_DT_PDU => {
+                        println!("got a data PDU");
+                        todo!();
+                    },
+                    TYPE_MD_PDU => {
+                        println!("got a multicast data PDU");
+                        todo!();
+                    },
+                    TYPE_ERQ_PDU => {
+                        println!("got an echo request PDU");
+                        // decompose PDU
+
+                        // fixed part
+                        //TODO check if buffer is actually that long
+                        let (fixed_part, segmentation_part_present) = NFixedPart::from_buf(&buffer[0..9]).expect("failed to decompose fixed part");
+                        let options_part_present = false;
+                        let data_part_length = 123;
+
+                        // address part
+                        //TODO check if buffer length is at least 1+1+1+1 bytes more
+                        let (address_part, address_part_length) = NAddressPart::from_buf(&buffer[9..buffer.len()]).expect("failed to decompose address part");
+                        let segmentation_part; let segmentation_part_length;
+                        if segmentation_part_present {
+                            (segmentation_part, segmentation_part_length) = NSegmentationPart::from_buf(&buffer[(9+address_part_length-1)..buffer.len()]).expect("failed to decompose segmentation part");
+                        } else {
+                            segmentation_part = None; segmentation_part_length = 0;
+                        }
+                        let options_part; let options_part_length;
+                        if options_part_present {
+                            (options_part, options_part_length) = NOptionsPart::from_buf(&buffer[3..11]).expect("failed to decompose options part");
+                        } else {
+                            options_part = None; options_part_length = 0;
+                        }
+                        let reason_for_discard_part = None; let reason_for_discard_part_length = 0; //NOTE: only for ER PDU
+                        //TODO check header checksum
+                        let data_part = NDataPart::from_buf(&buffer[9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length-1..9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length+data_part_length]).expect("failed to decompose data part");
+                        //TODO check for overhead bytes
+                        // assemble and return decomposed PDU
+                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: Some(data_part) };
+                        return pdu;
+                    },
+                    TYPE_ERP_PDU => {
+                        println!("got an echo response PDU");
+                        todo!();
+                    },
+                    _ => {
+                        // unknown PDU type
+                        panic!("unknown CLNP NPDU type: {}", type_);
+                    }
+                }
+                // return parsed PDU
+                todo!();
+            },
+            NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE => {
+                Pdu::Inactive {
+                    fixed_mini: NFixedPartMiniForInactive { network_layer_protocol_identifier: &buffer[0] },
+                    data: NDataPart { data: &buffer[1..buffer.len()] }  //TODO note, we dont really know how long the data part is at this point
+                }
+            }
+            _ => {
+                todo!();
+            }
+        }
+    }
+
+    //TODO implement and use in Pdu::new_echo_request()
+    pub fn as_slice(&self) -> &[u8] {
+        todo!();
+    }
+
     fn new_echo_request(
         sp_segmentation_permitted: bool,    //TODO use that :-)
         source_address: &Nsap,
@@ -320,249 +568,6 @@ struct NDataPart<'a> {
 impl NDataPart<'_> {
     fn from_buf(buffer: &[u8]) -> Option<Self> {
         todo!()
-    }
-}
-
-impl Pdu<'_> {
-    /// serialize struct into buffer, calculating a few fields along the way
-    /// Sender decides on the checksum option
-    pub fn into_buf(&mut self, checksum_option: bool, buffer: &mut [u8]) -> usize {
-        //TODO check if given buffer is really < MTU
-        match self {
-            Self::Inactive{fixed_mini, data} => {
-                buffer[0] = *fixed_mini.network_layer_protocol_identifier as u8;
-                //TODO optimize
-                for i in 0..data.data.len() {
-                    buffer[i+1] = data.data[i];
-                }
-                return 1 + data.data.len();
-            },
-            Self::NDataPDU { fixed, addr, seg, opts, discard, data } |
-            Self::EchoRequestPDU { fixed, addr, seg, opts, discard, data } |
-            Self::EchoResponsePDU { fixed, addr, seg, opts, discard, data } => {
-                // prepare octet 5
-                let octet5 = NFixedPart::compose_octet5_unchecked(
-                    //TODO dont know of these conversions are really needed
-                    if fixed.sp_segmentation_permitted { SpSegmentationPermittedBit::ONE } else { SpSegmentationPermittedBit::ZERO },
-                    if fixed.ms_more_segments { MsMoreSegmentsBit::ONE } else { MsMoreSegmentsBit::ZERO },
-                    if fixed.er_error_report { ErErrorReportBit::ONE } else { ErErrorReportBit::ZERO },
-                    *fixed.type_
-                );
-
-                // prepare length indicators
-                //TODO because of setting the values here we have to make it &mut self - make it possible to use &self?
-                //TODO regarding length indicators calculation: is "reason for discard" part of the header as per Standard? Or is this actually part of the Data part of ER PDU?
-                let (fixed_length_indicator, fixed_segment_length, addr_destination_address_length_indicator, addr_source_address_length_indicator) = Pdu::get_length_indicators(&fixed, &addr, &seg, &opts, &data);
-
-                // write into output buffer
-                let mut bytes = 0;
-
-                // fixed part
-                buffer[0] = *fixed.network_layer_protocol_identifier;
-                buffer[1] = fixed_length_indicator; // header length
-                buffer[2] = *fixed.version_protocol_id_extension;
-                buffer[3] = *fixed.lifetime;
-                buffer[4] = octet5;
-                //let segment_length_ne = fixed.segment_length.to_be_bytes();
-                //buffer[5] = segment_length_ne[0];   // packet length incl. header   //TODO calculate ;-)
-                //buffer[6] = segment_length_ne[1];
-                buffer[5] = fixed_segment_length.to_be_bytes()[0];   // packet length incl. header
-                buffer[6] = fixed_segment_length.to_be_bytes()[1];
-                let checksum_be = fixed.checksum.to_be_bytes(); // should be set to the invalid value - the checksum algorithm requires 0 for the checksum bytes at first
-                buffer[7] = checksum_be[0];
-                buffer[8] = checksum_be[1];
-                bytes += 9;
-
-                // address part
-                //destination address
-                buffer[9] = addr_destination_address_length_indicator;
-                bytes += 1;
-                for i in 0..addr.destination_address.len() {
-                    buffer[bytes+i] = addr.destination_address[i];
-                }
-                bytes += addr_destination_address_length_indicator as usize;   //TODO optimize
-                // source address
-                buffer[bytes] = addr_source_address_length_indicator;
-                bytes += 1;
-                for i in 0..addr.source_address.len() {
-                    buffer[bytes+i] = addr.source_address[i];
-                }
-                bytes += addr_source_address_length_indicator as usize;    //TODO optimize
-
-                // segmentation part
-                if let Some(seg_inner) = seg {
-                    let data_unit_identifier_be = seg_inner.data_unit_identifier.to_be_bytes();
-                    buffer[bytes] = data_unit_identifier_be[0];
-                    buffer[bytes+1] = data_unit_identifier_be[1];
-                    bytes += 2;
-                    let segment_offset_be = seg_inner.segment_offset.to_be_bytes();
-                    buffer[bytes] = segment_offset_be[0];
-                    buffer[bytes+1] = segment_offset_be[1];
-                    bytes += 2;
-                    let total_length_be = seg_inner.total_length.to_be_bytes();
-                    buffer[bytes] = total_length_be[0];
-                    buffer[bytes+1] = total_length_be[1];
-                    bytes += 2;
-                }
-
-                // options part
-                if let Some(opts_inner) = opts {
-                    bytes += opts_inner.len_bytes();
-                    //TODO compose the options
-                    todo!();
-                }
-
-                // reason for discard part
-                // N/A only for ER PDU
-
-                // now set the checksum for the header
-                if checksum_option {
-                    // calculate checksum
-                    /*
-                    see X.233 6.11 PDU header error detection function 
-                    and X.233 Annex C Algorithms for PDU header error detection function
-                    ideas in Wireshark OSI protocols dissector:  https://gitlab.com/wireshark/wireshark/-/blob/master/epan/dissectors/packet-osi.c#L113
-                    efficient mod-255 computation:  https://stackoverflow.com/questions/68074457/efficient-modulo-255-computation
-                    difference modulos and remainder:  https://stackoverflow.com/questions/31210357/is-there-a-modulus-not-remainder-function-operation
-                    */
-                    //TODO optimize, this is the 1:1 naive "mod 255 arithmetic calculation variant" given in X.233
-                    let mut c0: isize = 0;
-                    let mut c1: isize = 0;
-                    for i in 0..bytes {
-                        c0 = c0 + buffer[i] as isize;
-                        c1 = c1 + c0;
-                    }
-                    let mut x = ((bytes as isize - 8) * c0 - c1).rem_euclid(255);
-                    let mut y = ((bytes as isize - 7) * (-1 * c0) + c1).rem_euclid(255);   // % operator would give wrong result for negative y
-                    if x == 0 { x = 255; }
-                    if y == 0 { y = 255; }
-
-                    // assign into fixed part field
-                    buffer[7] = x as u8;
-                    buffer[8] = y as u8;
-                }
-
-                // data part
-                //TODO optimize
-                if let Some(data_inner) = data {
-                    for i in 0..data_inner.data.len() {
-                        buffer[bytes+i] = data_inner.data[i];
-                    }
-                    return bytes + data_inner.data.len();
-                } else {
-                    return bytes;   //TODO
-                }
-            },
-            //TODO are data PDU, ERQ, ERP PDU *and* multicast serialized in the same way?
-            Self::MulticastDataPDU { fixed, addr, seg, opts, discard, data } => {
-                todo!();
-            },
-            Self::ErrorReportPDU { fixed, addr, opts, discard, data } => {
-                todo!();
-                //param: &'a NParameter<'a>   //TODO enforce that here only parameter code "1100 0001" is allowed
-            },
-            _ => { todo!(); }
-        }
-        //matches!(self, Self::Inactive { .. })
-    }
-
-    pub fn from_buf(buffer: &[u8]) -> Pdu {
-        match buffer[0] {
-            NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL => {
-                //TODO implement correct algorithm for PDU decomposition according to standard
-                // check for length and PDU type
-                let type_;
-                if buffer.len() >= 5 {
-                    // check octet 5
-                    (_, _, _, type_) = NFixedPart::decompose_octet5(&buffer[4]);
-                } else {
-                    // too short
-                    panic!();
-                }
-                println!("got PDU type_: {}", type_);
-                /*
-                // X.233 7.2.6.1 Segmentation permitted
-                if !sp_segmentation_permitted -> segmentation header is not there and value of segment_length ield gives the total length of the PDU see 7.2.8 PDU segment length (fixed part) and 7.4.3 Segment offset (segmentation part)
-                // X.233 7.6.6.2 More segments
-                More segments flag == 1 -> segmentation has occured.
-                More segments flag shall not be set to 1 if the segmentation permitted flag is not set to 1.
-                when the more segments flag is set to zero, te last octet of the data part is the last octet of the NSDU.
-                // X.233 7.2.8 PDU segment length
-                if full protocol is employed && PDU is not segmented, value of this field is identical to the value of the total length field located in the segmentation part of the header.
-                if non-segmenting protocol subset is employed -> no segmentation part. and segment length field specifies entire length of PDU (header and data, if present)
-                // X.233 7.4.1 General (Segmentation part)
-                if the SP flag is set in fixed part (7.2.6.1) == 1 the segmentation part of the header shall be present.
-                // X.233 7.5.1 General (Options part)
-                Options part length = PDU header length - (length of fixed part + length of address part + length of segmentation part)
-                // X.233 7.9.5 Reason for discard
-                This parameter is valid only for the Error Report PDU.
-                // X.233 7.7.1 Structure (Data PDU) and 7.9.1 Structure (Error Report PDU) show nice overall figure of the variable byte indices in the PDU
-                */
-                match type_ {   //TODO optimize does the ordering of match conditions matter? should most common case be first?
-                    TYPE_ER_PDU => {
-                        println!("got an error report PDU");
-                        todo!();
-                    },
-                    TYPE_DT_PDU => {
-                        println!("got a data PDU");
-                        todo!();
-                    },
-                    TYPE_MD_PDU => {
-                        println!("got a multicast data PDU");
-                        todo!();
-                    },
-                    TYPE_ERQ_PDU => {
-                        println!("got an echo request PDU");
-                        // decompose PDU
-                        //TODO check buffer length if buffer is actually that long//###
-                        let (fixed_part, segmentation_part_present, options_part_present, data_part_length) = NFixedPart::from_buf(&buffer[0..9]).expect("failed to decompose fixed part");
-                        let (address_part, address_part_length) = NAddressPart::from_buf(&buffer[9..buffer.len()]).expect("failed to decompose address part");
-                        let segmentation_part; let segmentation_part_length;
-                        if segmentation_part_present {
-                            (segmentation_part, segmentation_part_length) = NSegmentationPart::from_buf(&buffer[(9+address_part_length-1)..buffer.len()]).expect("failed to decompose segmentation part");
-                        } else {
-                            segmentation_part = None; segmentation_part_length = 0;
-                        }
-                        let options_part; let options_part_length;
-                        if options_part_present {
-                            (options_part, options_part_length) = NOptionsPart::from_buf(&buffer[3..11]).expect("failed to decompose options part");
-                        } else {
-                            options_part = None; options_part_length = 0;
-                        }
-                        let reason_for_discard_part = None; let reason_for_discard_part_length = 0; //NOTE: only for ER PDU
-                        let data_part = NDataPart::from_buf(&buffer[9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length-1..9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length+data_part_length]).expect("failed to decompose data part");
-                        //TODO check for overhead bytes
-                        // assemble and return decomposed PDU
-                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: Some(data_part) };
-                        return pdu;
-                    },
-                    TYPE_ERP_PDU => {
-                        println!("got an echo response PDU");
-                        todo!();
-                    },
-                    _ => {
-                        // unknown PDU type
-                        panic!("unknown CLNP NPDU type: {}", type_);
-                    }
-                }
-                // return parsed PDU
-                todo!();
-            },
-            NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE => {
-                Pdu::Inactive {
-                    fixed_mini: NFixedPartMiniForInactive { network_layer_protocol_identifier: &buffer[0] },
-                    data: NDataPart { data: &buffer[1..buffer.len()] }  //TODO note, we dont really know how long the data part is at this point
-                }
-            }
-            _ => {
-                todo!();
-            }
-        }
-    }
-
-    //TODO implement and use in Pdu::new_echo_request()
-    pub fn as_slice(&self) -> &[u8] {
-        todo!();
     }
 }
 
