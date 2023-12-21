@@ -190,14 +190,14 @@ impl<'a> Pdu<'_> {
                 println!("got PDU type_: {}", type_);
                 /*
                 // X.233 7.2.6.1 Segmentation permitted
-                if !sp_segmentation_permitted -> segmentation header is not there and value of segment_length ield gives the total length of the PDU see 7.2.8 PDU segment length (fixed part) and 7.4.3 Segment offset (segmentation part)
+                if !sp_segmentation_permitted -> segmentation header is not there and value of segment_length field gives the total length of the PDU see 7.2.8 PDU segment length (fixed part) and 7.4.3 Segment offset (segmentation part)
                 // X.233 7.6.6.2 More segments
                 More segments flag == 1 -> segmentation has occured.
                 More segments flag shall not be set to 1 if the segmentation permitted flag is not set to 1.
                 when the more segments flag is set to zero, te last octet of the data part is the last octet of the NSDU.
                 // X.233 7.2.8 PDU segment length
                 if full protocol is employed && PDU is not segmented, value of this field is identical to the value of the total length field located in the segmentation part of the header.
-                if non-segmenting protocol subset is employed -> no segmentation part. and segment length field specifies entire length of PDU (header and data, if present)
+                if non-segmenting protocol subset is employed -> no segmentation part. and segment length field (fixed part) specifies entire length of PDU (header and data, if present)
                 // X.233 7.4.1 General (Segmentation part)
                 if the SP flag is set in fixed part (7.2.6.1) == 1 the segmentation part of the header shall be present.
                 // X.233 7.5.1 General (Options part)
@@ -225,31 +225,56 @@ impl<'a> Pdu<'_> {
 
                         // fixed part
                         //TODO check if buffer is actually that long
-                        let (fixed_part, segmentation_part_present) = NFixedPart::from_buf(&buffer[0..9]).expect("failed to decompose fixed part");
-                        let options_part_present = false;
+                        let fixed_part_length: usize = 9; //TODO optimize const
+                        let (fixed_part, segmentation_part_present) = NFixedPart::from_buf(&buffer[0..fixed_part_length]).expect("failed to decompose fixed part");
                         let data_part_length = 123;
+                        if fixed_part.ms_more_segments && !fixed_part.sp_segmentation_permitted {
+                            // combination not allowed
+                            panic!("sp_segmentation_permitted=false but ms_more_segments=true not allowed");
+                        }
+                        if fixed_part.ms_more_segments {
+                            // segmentation has occured
+                            todo!();
+                        }
+                        let data_part_length = fixed_part.segment_length;   // TODO if segmented, then this is I think not correct
 
                         // address part
                         //TODO check if buffer length is at least 1+1+1+1 bytes more
-                        let (address_part, address_part_length) = NAddressPart::from_buf(&buffer[9..buffer.len()]).expect("failed to decompose address part");
-                        let segmentation_part; let segmentation_part_length;
+                        let (address_part, address_part_length) = NAddressPart::from_buf(&buffer[fixed_part_length..buffer.len()]).expect("failed to decompose address part");
+
+                        // segmentation part
+                        let segmentation_part;
+                        let segmentation_part_length;
                         if segmentation_part_present {
-                            (segmentation_part, segmentation_part_length) = NSegmentationPart::from_buf(&buffer[(9+address_part_length-1)..buffer.len()]).expect("failed to decompose segmentation part");
+                            //TODO optimize - is always 6 bytes
+                            (segmentation_part, segmentation_part_length) = NSegmentationPart::from_buf(&buffer[(fixed_part_length+address_part_length-1)..buffer.len()]).expect("failed to decompose segmentation part");
                         } else {
                             segmentation_part = None; segmentation_part_length = 0;
                         }
-                        let options_part; let options_part_length;
+
+                        // options part
+                        let options_part;
+                        let options_part_length = (*fixed_part.length_indicator.unwrap() as usize) - (fixed_part_length + address_part_length + segmentation_part_length);
+                        let options_part_present = options_part_length != 0;
                         if options_part_present {
-                            (options_part, options_part_length) = NOptionsPart::from_buf(&buffer[3..11]).expect("failed to decompose options part");
+                            options_part = NOptionsPart::from_buf(&buffer[3..11]).expect("failed to decompose options part");
                         } else {
-                            options_part = None; options_part_length = 0;
+                            options_part = None;
                         }
-                        let reason_for_discard_part = None; let reason_for_discard_part_length = 0; //NOTE: only for ER PDU
-                        //TODO check header checksum
-                        let data_part = NDataPart::from_buf(&buffer[9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length-1..9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length+data_part_length]).expect("failed to decompose data part");
+
+                        // reason for discard part
+                        let reason_for_discard_part = None; //NOTE: only present in ER PDU
+                        let reason_for_discard_part_length = 0;
+
+                        // check header checksum
+                        //TODO
+
+                        // data part
+                        let data_part = NDataPart::from_buf(&buffer[9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length-1..buffer.len()], data_part_length.unwrap().into()).expect("failed to decompose data part");  //TODO optimize conversion/casting
                         //TODO check for overhead bytes
+
                         // assemble and return decomposed PDU
-                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: Some(data_part) };
+                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: data_part };
                         return pdu;
                     },
                     TYPE_ERP_PDU => {
