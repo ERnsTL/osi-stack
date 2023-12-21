@@ -285,8 +285,6 @@ impl<'a> Pdu<'_> {
                         panic!("unknown CLNP NPDU type: {}", type_);
                     }
                 }
-                // return parsed PDU
-                todo!();
             },
             NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE => {
                 Pdu::Inactive {
