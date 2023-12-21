@@ -617,7 +617,7 @@ impl NOptionsPart<'_> {
         return bytes;
     }
 
-    fn from_buf(buffer: &[u8]) -> Result<(Option<Self>, usize), Error> {
+    fn from_buf(buffer: &[u8]) -> Result<Option<Self>, Error> {
         todo!()
     }
 }
@@ -634,8 +634,13 @@ struct NDataPart<'a> {
 }
 
 impl NDataPart<'_> {
-    fn from_buf(buffer: &[u8]) -> Option<Self> {
-        todo!()
+    fn from_buf<'a>(buffer: &'a [u8], data_part_length: usize) -> Result<Option<NDataPart<'a>>, Error> {
+        if buffer.len() < data_part_length {
+            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "given segmentation part buffer too short"));
+        }
+        return Ok(Some(NDataPart {
+            data: &buffer[0..data_part_length],
+        }));
     }
 }
 
