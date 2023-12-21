@@ -180,13 +180,12 @@ impl<'a> Pdu<'_> {
                 //TODO implement correct algorithm for PDU decomposition according to standard
                 // check for length and PDU type
                 let type_;
-                if buffer.len() >= 5 {
-                    // check octet 5
-                    (_, _, _, type_) = NFixedPart::decompose_octet5(&buffer[4]);
-                } else {
+                if buffer.len() < 5 {
                     // too short
                     panic!();
                 }
+                // check octet 5
+                (_, _, _, type_) = NFixedPart::decompose_octet5(&buffer[4]);
                 println!("got PDU type_: {}", type_);
                 /*
                 // X.233 7.2.6.1 Segmentation permitted
@@ -235,7 +234,6 @@ impl<'a> Pdu<'_> {
                             // segmentation has occured
                             todo!();
                         }
-                        let data_part_length = fixed_part.segment_length;   // TODO if segmented, then this is I think not correct
 
                         // address part
                         //TODO check if buffer length is at least 1+1+1+1 bytes more
@@ -246,7 +244,7 @@ impl<'a> Pdu<'_> {
                         let segmentation_part_length;
                         if segmentation_part_present {
                             //TODO optimize - is always 6 bytes
-                            (segmentation_part, segmentation_part_length) = NSegmentationPart::from_buf(&buffer[(fixed_part_length+address_part_length-1)..buffer.len()]).expect("failed to decompose segmentation part");
+                            (segmentation_part, segmentation_part_length) = NSegmentationPart::from_buf(&buffer[(fixed_part_length+address_part_length)..buffer.len()]).expect("failed to decompose segmentation part");
                         } else {
                             segmentation_part = None; segmentation_part_length = 0;
                         }
@@ -256,7 +254,7 @@ impl<'a> Pdu<'_> {
                         let options_part_length = (*fixed_part.length_indicator.unwrap() as usize) - (fixed_part_length + address_part_length + segmentation_part_length);
                         let options_part_present = options_part_length != 0;
                         if options_part_present {
-                            options_part = NOptionsPart::from_buf(&buffer[3..11]).expect("failed to decompose options part");
+                            options_part = NOptionsPart::from_buf(&buffer[(fixed_part_length+address_part_length+segmentation_part_length)..buffer.len()]).expect("failed to decompose options part");
                         } else {
                             options_part = None;
                         }
@@ -269,7 +267,9 @@ impl<'a> Pdu<'_> {
                         //TODO ... and handle disabled checksum (value 00)
 
                         // data part
-                        let data_part = NDataPart::from_buf(&buffer[9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length-1..buffer.len()], data_part_length.unwrap().into()).expect("failed to decompose data part");  //TODO optimize conversion/casting
+                        let header_length = fixed_part_length+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length;
+                        let data_part_length = (fixed_part.segment_length.unwrap() as usize) - header_length;   // TODO if segmented, then this is I think not correct
+                        let data_part = NDataPart::from_buf(&buffer[header_length..buffer.len()], data_part_length).expect("failed to decompose data part");  //TODO optimize conversion/casting
                         //TODO check for overhead bytes
 
                         //TODO decompose Echo Response contained in the Echo Request PDU data part
