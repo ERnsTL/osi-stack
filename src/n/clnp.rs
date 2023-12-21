@@ -227,7 +227,6 @@ impl<'a> Pdu<'_> {
                         //TODO check if buffer is actually that long
                         let fixed_part_length: usize = 9; //TODO optimize const
                         let (fixed_part, segmentation_part_present) = NFixedPart::from_buf(&buffer[0..fixed_part_length]).expect("failed to decompose fixed part");
-                        let data_part_length = 123;
                         if fixed_part.ms_more_segments && !fixed_part.sp_segmentation_permitted {
                             // combination not allowed
                             panic!("sp_segmentation_permitted=false but ms_more_segments=true not allowed");
