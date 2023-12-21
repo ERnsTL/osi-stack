@@ -266,11 +266,13 @@ impl<'a> Pdu<'_> {
                         let reason_for_discard_part_length = 0;
 
                         // check header checksum
-                        //TODO
+                        //TODO ... and handle disabled checksum (value 00)
 
                         // data part
                         let data_part = NDataPart::from_buf(&buffer[9+address_part_length+segmentation_part_length+options_part_length+reason_for_discard_part_length-1..buffer.len()], data_part_length.unwrap().into()).expect("failed to decompose data part");  //TODO optimize conversion/casting
                         //TODO check for overhead bytes
+
+                        //TODO decompose Echo Response contained in the Echo Request PDU data part
 
                         // assemble and return decomposed PDU
                         let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: data_part };
