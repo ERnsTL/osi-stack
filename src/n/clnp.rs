@@ -57,6 +57,7 @@ impl<'a> Pdu<'_> {
                     if fixed.er_error_report { ErErrorReportBit::ONE } else { ErErrorReportBit::ZERO },
                     fixed.type_
                 );
+                println!("composing octet 5 has value: {}", octet5);
 
                 // prepare length indicators
                 //TODO because of setting the values here we have to make it &mut self - make it possible to use &self?
@@ -506,9 +507,9 @@ impl NFixedPart<'_> {
 
     fn decompose_octet5(octet5: &u8) -> (bool, bool, bool, u8) {
         return (
-            (octet5 & 0b10000000 >> 7) != 0,
-            (octet5 & 0b01000000 >> 6) != 0,
-            (octet5 & 0b00100000 >> 5) != 0,
+            (octet5 & 0b10000000) != 0,
+            (octet5 & 0b01000000) != 0,
+            (octet5 & 0b00100000) != 0,
             octet5 & 0b00011111
         );
     }
@@ -522,10 +523,13 @@ impl NFixedPart<'_> {
         }
 
         // parse fixed part
+        println!("decomposing octet 5 from value: {}", &buffer[4]);
         let (fixed_part_sp_segmentation_permitted,
             fixed_part_ms_more_segments,
             fixed_part_er_error_report,
             fixed_part_type_) = NFixedPart::decompose_octet5(&buffer[4]);
+        //###
+        println!("octet 5:  sp_segmentation_permitted={}  ms_more_segments={}  er_error_report={}  type_={}", fixed_part_sp_segmentation_permitted, fixed_part_ms_more_segments, fixed_part_er_error_report, fixed_part_type_);
         let fixed_part = NFixedPart {
             network_layer_protocol_identifier: &buffer[0],
             length_indicator: Some(&buffer[1]),
@@ -751,6 +755,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         println!("got CLNP packet: {:?}", pdu);
         if let Pdu::EchoRequestPDU { fixed, addr, seg, opts, discard, data  } = pdu {
             if let Some(data_inner) = data {
+                println!("parsing inner Echo Response");
                 println!("got inner Echo Response: {:?}", Pdu::from_buf(data_inner.data));
             }
         }
