@@ -34,6 +34,9 @@ Goals:
 
 ## Check
 
+* Much was achieved in this iteration: A significant part of the non-segmenting CLNP protocol subset was achieved, at its core the PDU composition and decomposition functions, especially for Echo Request PDU and Echo Response PDU, and much improved structure and abstraction between services.
+* Limitations in the current call structure were discovered and limit moving forward.
+
 * Currently, the ownership structure of structs is made so that it does not include circles, according to Rust ownership rules, which are mostly hierarchical. As soon as sharing and multiple ownership are involved, then either Mutexes are needed or splitting into multiple ownership domains, which communicate using a channel or shared memory or similar. This will have to be the next step, because even receiving an N Echo Request needs to be able to also send a response, thereby creating a loop back towards the underlying SN (Subnetwork).
 * It is not possible to realize the required timers, correlation between segmented PDUs and sendig using a stack-based call structure going in one directon -
   1. from application down to the Subnetwork and
