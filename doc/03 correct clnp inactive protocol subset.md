@@ -1,5 +1,6 @@
 # Iteration 3
 
+
 ## Plan
 
 Goals:
@@ -190,3 +191,22 @@ Goal:  list of tests (PICS)
 * On Linux/Unix, the reading of SN-UNITDATA indications is actually just reading from the socket, but it must be done in a preparatory converter method outside, because the parameters for the SN-UNITDATA primitive are not yet parsed AKA the DL PCI (header) with the source + destination address, EtherType are not parsed yet. Unfortunately, the Linux kernel nor libc do not directly call our OSI stack sn_unitdata_indication() method with the nicely-prepared parameters...
 * Observation that Wireshark can be modified to use the CLNP dissector for EtherType 0x8872 via Lua. Nice.
 * The OSI protocol byte-order is big-endian.
+
+
+## Check
+
+* Currently, the ownership structure of structs is made so that it does not include circles, according to Rust ownership rules, which are mostly hierarchical. As soon as sharing and multiple ownership are involved, then either Mutexes are needed or splitting into multiple ownership domains, which communicate using a channel or shared memory or similar. This will have to be the next step, because even receiving an N Echo Request needs to be able to also send a response, thereby creating a loop back towards the underlying SN (Subnetwork).
+* It is not possible to realize the required timers, correlation between segmented PDUs and sendig using a stack-based call structure going in one directon -
+  1. from application down to the Subnetwork and
+  2. from Subnetwork only propagating up.
+* There have to be connections and loops, for example the echo request function sending back a an echo response.
+* Therefore, the goal of ability to send an Echo Response NPDU in response to an Echo Request NPDU has to be achieved using restructuring of the code.
+* The layers have to have their own calling stacks, have to be able to on their own triggers.
+
+* It is also not possible to have a reader thread responsible for receiving SN PDUs (Ethernet packets) and simply calling functions deeper up the stack and waiting until that Ethernet packet is fully processed and a response has come back from up in the stack.
+
+
+## Act
+
+* The plan for the next iteration has to be adjusted, to first create the according communication structure between layers in order to allow layers to be active on their own.
+* The stack has to become multi-threaded, thus with multiple active objects, one for each service.
