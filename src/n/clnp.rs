@@ -316,6 +316,7 @@ impl<'a> Pdu<'_> {
         let erp_pdu_destination_address = destination_address.to_u8();   //TODO optimize
         let erp_pdu_source_address = source_address.to_u8();
         let mut erp_pdu = Pdu::EchoResponsePDU {
+            //###
             fixed: NFixedPart {
                 network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL,
                 length_indicator: None,    // will be filled
@@ -528,7 +529,6 @@ impl NFixedPart<'_> {
             fixed_part_ms_more_segments,
             fixed_part_er_error_report,
             fixed_part_type_) = NFixedPart::decompose_octet5(&buffer[4]);
-        //###
         println!("octet 5:  sp_segmentation_permitted={}  ms_more_segments={}  er_error_report={}  type_={}", fixed_part_sp_segmentation_permitted, fixed_part_ms_more_segments, fixed_part_er_error_report, fixed_part_type_);
         let fixed_part = NFixedPart {
             network_layer_protocol_identifier: &buffer[0],
