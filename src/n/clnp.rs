@@ -507,7 +507,7 @@ impl NFixedPart<'_> {
 
     fn decompose_octet5(octet5: &u8) -> (bool, bool, bool, u8) {
         return (
-            (octet5 & 0b10000000) != 0,
+            (octet5 & 0b10000000) != 0, // no right shift needed - only need to know if bit i is 0, then the number is also zero or if it is != 0 then the bit there is set even if it means 128, 64 or 32 value
             (octet5 & 0b01000000) != 0,
             (octet5 & 0b00100000) != 0,
             octet5 & 0b00011111
