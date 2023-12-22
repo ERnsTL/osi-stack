@@ -98,7 +98,7 @@ impl SubnetworkService for Service {
                     },
                     ether_type::IPV6 => { println!("{}", "got ipv6, ignoring"); }
                     ether_type::IPV4 => { println!("{}", "got ipv4, ignoring"); }
-                    ETHER_TYPE_CLNP => { println!("ah, got CLNP - feel warmly welcome!"); }
+                    ETHER_TYPE_CLNP => { println!("ah, got CLNP - feel warmly welcome!"); } //TODO optimize - does the order of match legs affect performance?
                     _ => { println!("{}", "got unknown, discarding"); }
                 }
 

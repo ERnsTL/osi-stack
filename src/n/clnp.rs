@@ -757,7 +757,13 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             if let Some(data_inner) = data {
                 println!("parsing inner Echo Response");
                 println!("got inner Echo Response: {:?}", Pdu::from_buf(data_inner.data));
+                // respond with echo response
+                //TODO
+            } else {
+                panic!("expected inner echo response PDU inside received echo request");
             }
+        } else {
+            todo!();
         }
     }
 
