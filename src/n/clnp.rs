@@ -210,16 +210,15 @@ impl<'a> Pdu<'_> {
                         println!("got an error report PDU");
                         todo!();
                     },
-                    TYPE_DT_PDU => {
-                        println!("got a data PDU");
-                        todo!();
-                    },
-                    TYPE_MD_PDU => {
-                        println!("got a multicast data PDU");
-                        todo!();
-                    },
-                    TYPE_ERQ_PDU => {
-                        println!("got an echo request PDU");
+                    TYPE_DT_PDU | TYPE_MD_PDU | TYPE_ERQ_PDU | TYPE_ERP_PDU => {
+                        match type_ {
+                            TYPE_DT_PDU => { println!("got a data PDU"); },
+                            TYPE_MD_PDU => { println!("got a multicast data PDU"); },
+                            TYPE_ERQ_PDU => { println!("got an echo request PDU"); },
+                            TYPE_ERP_PDU => { println!("got an echo response PDU"); },
+                            _ => { todo!(); }
+                        }
+
                         // decompose PDU
 
                         // fixed part
@@ -277,10 +276,6 @@ impl<'a> Pdu<'_> {
                         // assemble and return decomposed PDU
                         let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: data_part };
                         return pdu;
-                    },
-                    TYPE_ERP_PDU => {
-                        println!("got an echo response PDU");
-                        todo!();
                     },
                     _ => {
                         // unknown PDU type
