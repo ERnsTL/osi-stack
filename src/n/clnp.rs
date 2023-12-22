@@ -752,7 +752,13 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         ns_quality_of_service: &Qos,
         ns_userdata: &[u8]
     ) {
-        println!("got CLNP packet: {:?}", Pdu::from_buf(ns_userdata));
+        let pdu = Pdu::from_buf(ns_userdata);
+        println!("got CLNP packet: {:?}", pdu);
+        if let Pdu::EchoRequestPDU { fixed, addr, seg, opts, discard, data  } = pdu {
+            if let Some(data_inner) = data {
+                println!("got inner Echo Response: {:?}", Pdu::from_buf(data_inner.data));
+            }
+        }
     }
 
     // X.233 6.19 Echo request function
