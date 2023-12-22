@@ -1,6 +1,10 @@
-# Iteration 04
+# Iteration 4
+
+
+## Plan
 
 * Achieve ability for two systems to send and receive Echo Requests and Echo Responses to each other.
+* Perform necessary code restructuring to allow that.
 
 ---
 
@@ -38,7 +42,7 @@
 
 ---
 
-04:
+05:
 
 * Change implementation to start of Non-Segmenting Protocol subset:
 * Add full Echo Request function.
@@ -48,7 +52,7 @@
 
 ---
 
-05:
+06:
 
 * Add full struct and decomposition of options part resp. parameter meanings.
 * Implement full protocol support.
@@ -163,3 +167,8 @@ Goal:  list of tests (PICS)
   * TODO
 * annex A - PICS proforma
   * TODO
+
+
+## Do
+
+* ...
