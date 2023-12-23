@@ -1,28 +1,37 @@
 pub mod clnp;
 
 use advmac::MacAddr6;
+
+use crate::dl::SNUnitDataRequest;
 use crate::n::clnp::NOptionsPart;
 
 pub trait NetworkService<'a> {
-    fn new(sn_service: crate::dl::ethernet::Service, network_entity_title: &'a str) -> Self;   // consume the SubnetService
+    fn new(
+        network_entity_title: &'a str,
+        sn_service_to: rtrb::Producer<SNUnitDataRequest>,
+        sn_service_from: rtrb::Consumer<NUnitDataIndication>,
+    ) -> Self;
     //TODO this ^ is not nicely abstracted, should allow all implementors of SubnetService, but then compiler suggests dyn, which has runtime cost :-(
     fn add_serviced_nsap(&mut self, authority: u16, area: u16, sub_area: u16, remainder: MacAddr6);
     fn add_serviced_subnet_nsap(&mut self, net: u16, sub_net: u16, macaddr: MacAddr6);
     fn resolve_nsap(&self, system_title: &str) -> Option<&Nsap>;
     fn add_known_host(&mut self, system_title: String, nsap: &str);
     fn get_serviced_nsap(&self) -> Option<&Nsap>;
+    /// called by TS
     fn n_unitdata_request(&mut self,
         ns_destination_title: &str,
-        ns_quality_of_service: &Qos,
-        ns_userdata: &[u8]
+        ns_quality_of_service: &'a Qos,
+        ns_userdata: &'a [u8]
     );
-    fn n_unitdata_indication(
+    /// called by SN
+    fn n_unitdata_indication(&self,
         ns_source_address: MacAddr6,
         ns_destination_address: MacAddr6,
         ns_quality_of_service: &Qos,
         ns_userdata: &[u8]
     );
-    // X.233 6.19 Echo request function
+    /// X.233 6.19 Echo request function
+    /// called by application
     fn echo_request(&mut self,
         destination_title: Option<String>,
         destination_nsap: Option<&Nsap>,
@@ -30,6 +39,9 @@ pub trait NetworkService<'a> {
         options: Option<NOptionsPart>,
         ns_quality_of_service: &Qos
     ); //TODO clunky to return the sending Nsap, and even that is not possible inside echo_request() this should be known beforehand, but alas, Rust's no 2nd borrow on ns variable
+    fn run(&mut self);
+    //TODO
+    fn pdu_composition(&self, inactive: bool, ns_source_address: &'a Nsap, ns_destination_address: &'a Nsap, ns_quality_of_service: &'a Qos, ns_userdata: &'a [u8]) -> Vec<crate::n::clnp::Pdu<'a>>;
 }
 
 //TODO implement full NSAP
@@ -85,4 +97,11 @@ impl ToString for Nsap {
 
 pub struct Qos {
     //TODO
+}
+
+pub struct NUnitDataIndication {
+    pub ns_source_address: MacAddr6,
+    pub ns_destination_address: MacAddr6,
+    pub ns_quality_of_service: crate::n::Qos,
+    pub ns_userdata: Vec<u8>
 }

@@ -1,6 +1,8 @@
 use advmac::MacAddr6;
 use afpacket::sync::RawPacketStream;
 
+use crate::n::NUnitDataIndication;
+
 pub mod ethernet;
 
 pub const ETHER_TYPE_CLNP: u16 = 0x8872;  // as per https://datatracker.ietf.org/doc/html/draft-kaplan-isis-ext-eth-ip-clns-2-00
@@ -15,20 +17,35 @@ pub const ETHER_TYPE_CLNP: u16 = 0x8872;  // as per https://datatracker.ietf.org
 // TODO is ^ true?
 pub struct Qos {}
 
-pub trait SubnetworkService {
-    fn new(socket: RawPacketStream) -> Self where Self: Sized;
+pub trait SubnetworkService<'a> {
+    fn new(
+        socket: RawPacketStream,
+        n_service_from: rtrb::Consumer<SNUnitDataRequest>,
+        n_service_to: rtrb::Producer<NUnitDataIndication>,
+    ) -> Self where Self: Sized;    //TODO make network service exchangeable without requiring "dyn" (optimize)
+    /// called by NS
     fn sn_unitdata_request(&mut self,
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
         sn_quality_of_service: Qos,
-        sn_userdata: &mut crate::n::clnp::Pdu
+        sn_userdata: crate::n::clnp::Pdu
     );
+    /// called by NS
     fn flush(&mut self);
-    fn sn_unitdata_indication(
+    /// called by run()
+    fn sn_unitdata_indication(//&self,
+        n_service_to: &mut rtrb::Producer<NUnitDataIndication>,
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
-        sn_quality_of_service: &Qos,
-        sn_userdata: &[u8]
+        sn_quality_of_service: Qos,
+        sn_userdata: &'a [u8]
     );
     fn run(&mut self);
+}
+
+pub struct SNUnitDataRequest {
+    pub sn_source_address: MacAddr6,
+    pub sn_destination_address: MacAddr6,
+    pub sn_quality_of_service: Qos,
+    pub sn_userdata: Vec<u8>,
 }

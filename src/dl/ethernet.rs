@@ -4,21 +4,29 @@ use advmac::MacAddr6;
 use afpacket::sync::RawPacketStream;
 use etherparse::{Ethernet2Header, ether_type, SingleVlanHeaderSlice};
 
-use crate::n;
-use crate::n::NetworkService;
+use crate::n::{self, NUnitDataIndication};
 
-use super::{SubnetworkService, Qos};
+use super::{SubnetworkService, Qos, SNUnitDataRequest};
 
 pub struct Service {
     socket: RawPacketStream,
     buffer: [u8; 1500],
+
+    n_service_from: rtrb::Consumer<SNUnitDataRequest>,
+    n_service_to: rtrb::Producer<NUnitDataIndication>,
 }
 
-impl SubnetworkService for Service {
-    fn new(socket: RawPacketStream) -> Self {
+impl<'a> SubnetworkService<'a> for Service {
+    fn new(
+        socket: RawPacketStream,
+        n_service_from: rtrb::Consumer<SNUnitDataRequest>,
+        n_service_to: rtrb::Producer<NUnitDataIndication>
+    ) -> Self {
         Service {
             socket: socket,
             buffer: [0u8; 1500],
+            n_service_from,
+            n_service_to,
         }
     }
 
@@ -27,7 +35,7 @@ impl SubnetworkService for Service {
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
         sn_quality_of_service: Qos,
-        sn_userdata: &mut n::clnp::Pdu,  //TODO not perfectly abstracted, should be &[u8], but why not write directly into lower layer's buffer?
+        mut sn_userdata: n::clnp::Pdu,  //TODO not perfectly abstracted, should be &[u8], but why not write directly into lower layer's buffer?
     ) {
         // send SNSDU (Ethernet frame)
         //TODO optimize - here an Ethernet2 header is allocated, which copies the values from sn_* - better something which borrows the values
@@ -55,61 +63,62 @@ impl SubnetworkService for Service {
     }
 
     fn sn_unitdata_indication(
+        n_service_to: &mut rtrb::Producer<NUnitDataIndication>, //TODO optimize clunky - &mut self would be nice but complains about 2 mutable borrows to self
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
-        sn_quality_of_service: &Qos,
-        sn_userdata: &[u8]
+        sn_quality_of_service: Qos,
+        sn_userdata: &'a [u8]
     ) {
-        let n_quality_of_service = n::Qos{}; //TODO from sn_quality_of_service
+        let n_quality_of_service = n::Qos{}; //TODO from sn_quality_of_service  //TODO optimize - new allocation on every call
         //TODO the source and destination addresses should probably also be converted to NSAPs for the N layer protocol
 
         // forward up from DL to N layer
         //TODO this method will need &mut self at some point, but this will create 2 borrows - one for read and one for write
         //TODO must enable 2 threads working inside NClnpService.
         //TODO modify to have NClnpService .read and .write inner parts - only these get borrowed. And these 2 only lock the shared host lists etc. when really needed.
-        n::clnp::Service::n_unitdata_indication(
-            sn_source_address,
-            sn_destination_address,
-            &n_quality_of_service,
-            sn_userdata
-        );
+        n_service_to.push(NUnitDataIndication{
+            ns_source_address: sn_source_address,
+            ns_destination_address: sn_destination_address,
+            ns_quality_of_service: n_quality_of_service,
+            ns_userdata: sn_userdata.to_vec()    //TODO optimize
+        });
     }
 
     // read SN-UNITDATA Indications from the socket
     fn run(&mut self) {
-        let mut socket = self.socket.clone();
-        let _ = thread::spawn(move || {
-            let qos = Qos{};
-            loop {
-                let mut buffer = [0u8; 1500];
-                println!("reading frame...");
-                let num_bytes = socket.read(&mut buffer).expect("could not read DL frame from socket into buffer"); //TODO handle network down - dont crash, but try again
+        let mut socket = self.socket.clone();   //TODO optimize
+        loop {
+            //let mut buffer = [0u8; 1500];
+            println!("reading frame...");
+            let buffer = &mut self.buffer;
+            let num_bytes = socket.read(buffer).expect("could not read DL frame from socket into buffer"); //TODO handle network down - dont crash, but try again
 
-                // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
-                let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(&buffer).expect("could not parse Ethernet2 header");
-                println!("destination: {:x?}  source: {:x?}  ethertype: 0x{:04x}", eth_header.destination(), eth_header.source(), eth_header.ether_type());
-                let mut vlan_len: usize = 0;
-                match eth_header.ether_type() {
-                    ether_type::VLAN_TAGGED_FRAME | ether_type::PROVIDER_BRIDGING | ether_type::VLAN_DOUBLE_TAGGED_FRAME => {
-                        let vlan_header = SingleVlanHeaderSlice::from_slice(&buffer[eth_header.slice().len()-1..buffer.len()-1]).expect("could not parse single VLAN header");
-                        println!("vlan: {:?}", vlan_header);
-                        vlan_len = vlan_header.slice().len();
-                        //TODO handle what comes after vlan
-                    },
-                    ether_type::IPV6 => { println!("{}", "got ipv6, ignoring"); }
-                    ether_type::IPV4 => { println!("{}", "got ipv4, ignoring"); }
-                    ETHER_TYPE_CLNP => { println!("ah, got CLNP - feel warmly welcome!"); } //TODO optimize - does the order of match legs affect performance?
-                    _ => { println!("{}", "got unknown, discarding"); }
-                }
-
-                // send up the stack to Subnetwork Service as SN-UNITDATA Indication
-                Self::sn_unitdata_indication(
-                    MacAddr6::from(eth_header.source()),
-                    MacAddr6::from(eth_header.destination()),
-                    &qos,
-                    &buffer[0+eth_header.slice().len() .. num_bytes]    //TODO plus VLAN 802.11q (?) header, if present
-                );
+            // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
+            let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(buffer).expect("could not parse Ethernet2 header");
+            println!("destination: {:x?}  source: {:x?}  ethertype: 0x{:04x}", eth_header.destination(), eth_header.source(), eth_header.ether_type());
+            let mut vlan_len: usize = 0;
+            match eth_header.ether_type() {
+                ether_type::VLAN_TAGGED_FRAME | ether_type::PROVIDER_BRIDGING | ether_type::VLAN_DOUBLE_TAGGED_FRAME => {
+                    let vlan_header = SingleVlanHeaderSlice::from_slice(&buffer[eth_header.slice().len()-1..buffer.len()-1]).expect("could not parse single VLAN header");
+                    println!("vlan: {:?}", vlan_header);
+                    vlan_len = vlan_header.slice().len();
+                    //TODO handle what comes after vlan
+                },
+                ether_type::IPV6 => { println!("{}", "got ipv6, ignoring"); }
+                ether_type::IPV4 => { println!("{}", "got ipv4, ignoring"); }
+                ETHER_TYPE_CLNP => { println!("ah, got CLNP - feel warmly welcome!"); } //TODO optimize - does the order of match legs affect performance?
+                _ => { println!("{}", "got unknown, discarding"); }
             }
-        });
+
+            // send up the stack to Subnetwork Service as SN-UNITDATA Indication
+            let qos = Qos{};    //TODO optimize allocation
+            Self::sn_unitdata_indication(
+                &mut self.n_service_to, //TODO optimize clunky - &mut self would be nice but complains about 2 mutable borrows to self
+                MacAddr6::from(eth_header.source()),
+                MacAddr6::from(eth_header.destination()),
+                qos,
+                &buffer[0+eth_header.slice().len() .. num_bytes]    //TODO plus VLAN 802.11q (?) header, if present
+            );
+        }
     }
 }

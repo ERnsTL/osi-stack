@@ -1,3 +1,4 @@
+use std::thread;
 use netconfig::Interface;
 use afpacket::sync::RawPacketStream;
 
@@ -36,15 +37,23 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     drop(iface_config);
 
     // start up OSI network service
-    let mut sn = dl::ethernet::Service::new(ps);
-    sn.run();
-    let mut ns = n::clnp::Service::new(sn, network_entity_title);
+    let (mut sn2ns_producer, mut sn2ns_consumer) = rtrb::RingBuffer::new(7);
+    let (mut ns2sn_producer, mut ns2sn_consumer) = rtrb::RingBuffer::new(7);
+    let mut sn = dl::ethernet::Service::new(ps, ns2sn_consumer, sn2ns_producer);
+    let mut ns = n::clnp::Service::new(network_entity_title, ns2sn_producer, sn2ns_consumer);
     // set own/serviced NSAPs
+    //TODO optimize locking here - maybe it is fine to pack up ns and sn into Arc<Mutex<>> upon calling run()
     ns.add_serviced_subnet_nsap(1, 1, macaddr);
     // add known hosts
     for host in hosts {
         ns.add_known_host(host.0.to_owned(), host.1);   //TODO optimize clone
     }
 
-    return ns;
+    // run stack
+    let _ = thread::spawn(move || {
+        sn.run();
+    });
+    ns.run();
+
+    return ns;  //TODO instead of NS, return likely the ACSE for registering applications
 }

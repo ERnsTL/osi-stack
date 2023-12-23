@@ -1,8 +1,8 @@
+use crate::dl::SNUnitDataRequest;
 use std::{collections::HashMap, io::Error};
 use advmac::MacAddr6;
 
-use super::{Nsap, Qos};
-use crate::dl::{SubnetworkService, self};
+use super::{Nsap, Qos, NUnitDataIndication};
 
 pub fn parse_macaddr(instr: &str) -> Result<MacAddr6, advmac::ParseError> {
     MacAddr6::parse_str(instr)
@@ -674,16 +674,22 @@ pub struct Service<'a> {
     network_entity_title: &'a str,   // own title
 
     // underlying service assumed by the protocol = subnet service on data link layer
-    sn_service: dl::ethernet::Service,
+    sn_service_to: rtrb::Producer<SNUnitDataRequest>,
+    sn_service_from: rtrb::Consumer<NUnitDataIndication>,
 }
 
 impl<'a> super::NetworkService<'a> for Service<'a> {
-    fn new(sn_service: dl::ethernet::Service, network_entity_title: &'a str) -> Service<'a> {
+    fn new(
+        network_entity_title: &'a str,
+        sn_service_to: rtrb::Producer<SNUnitDataRequest>,
+        sn_service_from: rtrb::Consumer<NUnitDataIndication>
+    ) -> Service<'a> {
         Service {
-            sn_service: sn_service,
             serviced_nsaps: vec![],
             known_hosts: HashMap::new(),
             network_entity_title: network_entity_title,
+            sn_service_to: sn_service_to,
+            sn_service_from: sn_service_from,
         }
     }
 
@@ -731,21 +737,46 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     fn n_unitdata_request(
         &mut self,
         ns_destination_title: &str,
-        ns_quality_of_service: &Qos,
-        ns_userdata: &[u8]
+        ns_quality_of_service: &'a Qos,
+        ns_userdata: &'a [u8]
     ) {
-        let get_serviced_nsap = self.get_serviced_nsap().expect("no serviced NSAPs").clone();
-        let dest_nsap = self.resolve_nsap(ns_destination_title).expect("cannot resolve destination host").clone();
+        let get_serviced_nsap = self.get_serviced_nsap().expect("no serviced NSAPs").clone();   //TODO optimize clone - again the cannot borrow self 2 times issue
+        let dest_nsap = self.resolve_nsap(ns_destination_title).expect("cannot resolve destination host").clone();  //TODO optimize clone - again the cannot borrow self 2 times issue
+        /*
         self.n_unitdata_request_internal(
             &get_serviced_nsap,
             &dest_nsap,
             &ns_quality_of_service,
             ns_userdata
         );
+        */
+        let ns_source_address = get_serviced_nsap;
+        let ns_destination_address = dest_nsap;
+        // check if we are on same Ethernet broadcast domain as destination
+        if can_use_inactive_subset(&ns_source_address, &ns_destination_address) {
+            // compose PDU(s)
+            let pdus = self.pdu_composition(true, &ns_source_address, &ns_destination_address, ns_quality_of_service, ns_userdata);
+            // unitdata request to SN
+            for mut pdu in pdus {   //TODO optimize this should iterate over &Pdu not Pdu (copy?)
+                let mut buffer = [0u8; 1500];    //TODO optimize this whole to_buf and transfer to SN
+                let bytes = pdu.into_buf(true, &mut buffer);
+                let mut thevec: Vec<u8> = Vec::with_capacity(bytes);
+                thevec.extend_from_slice(&buffer[0..bytes]);
+                self.sn_service_to.push(SNUnitDataRequest{
+                    sn_source_address: ns_source_address.local_address,
+                    sn_destination_address: ns_destination_address.local_address,
+                    sn_quality_of_service: crate::dl::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
+                    sn_userdata: thevec,    //TODO not perfect abstraction, but should save us a memcpy
+                });
+                //self.sn_service_to.flush();   //TODO make it flush the socket
+            }
+            return;
+        }
+        todo!();
     }
 
     //TODO implement properly (PDU decomposition)
-    fn n_unitdata_indication(
+    fn n_unitdata_indication(&self,
         ns_source_address: MacAddr6,
         ns_destination_address: MacAddr6,
         ns_quality_of_service: &Qos,
@@ -815,16 +846,39 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         );
 
         // send it via data link or subnetwork
-        let sn_quality_of_service = dl::Qos{};  //TODO convert Network Layer QoS to Data Link Layer QoS
-        self.sn_service.sn_unitdata_request(
-            source_address.local_address,
-            destination_address.local_address,
-            sn_quality_of_service,
-            &mut erq_pdu
-        );
+        let sn_quality_of_service = crate::dl::Qos{};  //TODO convert Network Layer QoS to Data Link Layer QoS
+        let mut buffer = [0u8; 1500];   //TODO optimize this whole to_buf and transfer to SN
+        let bytes = erq_pdu.into_buf(true, &mut buffer);
+        let mut thevec: Vec<u8> = Vec::with_capacity(bytes);
+        thevec.extend_from_slice(&buffer[0..bytes]);
+        self.sn_service_to.push(SNUnitDataRequest{
+            sn_source_address: source_address.local_address,
+            sn_destination_address: destination_address.local_address,
+            sn_quality_of_service: sn_quality_of_service,
+            sn_userdata: thevec,
+        });
+    }
+
+    fn run(&mut self) {
+        todo!();
+    }
+
+    // 6.1
+    // TODO WIP
+    // TODO optimize - this function allocates CLNP PDUs for every call
+    fn pdu_composition(&self, inactive: bool, ns_source_address: &'a Nsap, ns_destination_address: &'a Nsap, ns_quality_of_service: &'a Qos, ns_userdata: &'a [u8]) -> Vec<Pdu<'a>> {
+        if inactive {
+            return vec![Pdu::Inactive {
+                fixed_mini: NFixedPartMiniForInactive { network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE },
+                data: NDataPart { data: ns_userdata }
+            }]
+        } else {
+            todo!();
+        }
     }
 }
 
+/*
 impl Service<'_> {
     // TODO only inactive implemented
     fn n_unitdata_request_internal(
@@ -834,43 +888,14 @@ impl Service<'_> {
         ns_quality_of_service: &Qos,
         ns_userdata: &[u8]
     ) {
-        // check if we are on same Ethernet broadcast domain as destination
-        if can_use_inactive_subset(ns_source_address, ns_destination_address) {
-            // compose PDU(s)
-            let pdus = pdu_composition(true, ns_source_address, ns_destination_address, ns_quality_of_service, ns_userdata);
-            for mut pdu in pdus {   //TODO optimize this should iterate over &Pdu not Pdu (copy?)
-                self.sn_service.sn_unitdata_request(
-                    ns_source_address.local_address,
-                    ns_destination_address.local_address,
-                    dl::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
-                    &mut pdu    //TODO not perfect abstraction, but should save us a memcpy
-                );
-                self.sn_service.flush();
-            }
-            return;
-        }
-        todo!();
     }
 }
+*/
 
 //TODO
 fn can_use_inactive_subset(ns_source_address: &Nsap, ns_destination_address: &Nsap) -> bool {
     // TODO check if on same subnetwork (AKA in same Ethernet segment)
     true
-}
-
-// 6.1
-// TODO WIP
-// TODO optimize - this function allocates CLNP PDUs for every call
-fn pdu_composition<'a>(inactive: bool, ns_source_address: &'a Nsap, ns_destination_address: &'a Nsap, ns_quality_of_service: &'a Qos, ns_userdata: &'a [u8]) -> Vec<Pdu<'a>> {
-    if inactive {
-        return vec![Pdu::Inactive {
-            fixed_mini: NFixedPartMiniForInactive { network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE },
-            data: NDataPart { data: ns_userdata }
-        }]
-    } else {
-        todo!();
-    }
 }
 
 enum HeaderFormatAnalysisResult {
