@@ -50,19 +50,10 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     }
 
     // start SN
-    //let _ = thread::spawn(move || {
-        sn.run();
-    //});
-    /*
-    let _ = thread::spawn(|| {
-        sn.run2();
-    });
-    */
-    /*
-    let _ = thread::spawn(move || {
-        ns.run();
-    });
-    */
+    // NOTE: will go out of scope at end of this function, at the same time sn cannot be borrowed 2x for read and write threads
+    // therefore, interior mutability and because we are multi-threaded, Arc<Mutex<>> is needed. Yay.
+    //TODO optimize?
+    sn.run();
 
     return ns;  //TODO instead of NS, return likely the ACSE for registering applications
 }

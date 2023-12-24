@@ -131,14 +131,17 @@ impl<'a> SubnetworkService<'a> for Service {
             }
         });
 
-        // read NS-UNITDATA-REQUEST from NS
-        let mut n_service_from = self.n_service_from.lock().expect("failed to lock n_service_from");
-        loop {
-            if let Ok(sn_unitdata_request) = n_service_from.pop() {
-                println!("got sn_unitdata_request from NS: {:?}", sn_unitdata_request);
+        // read SN-UNITDATA-REQUEST from NS
+        let n_service_from_arc = self.n_service_from.clone();
+        let _ = thread::spawn(move || {
+            let mut n_service_from = n_service_from_arc.lock().expect("failed to lock n_service_from");
+            loop {
+                if let Ok(sn_unitdata_request) = n_service_from.pop() {
+                    println!("got sn_unitdata_request from NS: {:?}", sn_unitdata_request);
+                }
+                thread::sleep(std::time::Duration::from_millis(500));
             }
-            thread::sleep(std::time::Duration::from_millis(500));
-        }
+        });
     }
 
     fn run2(&self) {
