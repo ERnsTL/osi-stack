@@ -24,6 +24,8 @@ pub trait NetworkService<'a> {
     );
     /// called by SN
     fn n_unitdata_indication(//&self,
+        sn_service_to: &mut rtrb::Producer<SNUnitDataRequest>,
+        // actual parameters
         ns_source_address: MacAddr6,
         ns_destination_address: MacAddr6,
         ns_quality_of_service: &Qos,

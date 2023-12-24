@@ -175,7 +175,7 @@ impl<'a> Pdu<'_> {
         //matches!(self, Self::Inactive { .. })
     }
 
-    pub fn from_buf(buffer: &[u8]) -> Pdu {
+    pub fn from_buf(buffer: &[u8]) -> Pdu { //TODO add error handling (Result)
         match buffer[0] {
             NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL => {
                 //TODO implement correct algorithm for PDU decomposition according to standard
@@ -674,7 +674,7 @@ pub struct Service<'a> {
     network_entity_title: &'a str,   // own title
 
     // underlying service assumed by the protocol = subnet service on data link layer
-    sn_service_to: rtrb::Producer<SNUnitDataRequest>,
+    sn_service_to: Arc<Mutex<rtrb::Producer<SNUnitDataRequest>>>,
     sn_service_from: Arc<Mutex<rtrb::Consumer<NUnitDataIndication>>>,
 }
 
@@ -688,7 +688,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             serviced_nsaps: vec![],
             known_hosts: HashMap::new(),
             network_entity_title: network_entity_title,
-            sn_service_to: sn_service_to,
+            sn_service_to: Arc::new(Mutex::new(sn_service_to)),
             sn_service_from: Arc::new(Mutex::new(sn_service_from)),
         }
     }
@@ -777,6 +777,8 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
 
     //TODO implement properly (PDU decomposition)
     fn n_unitdata_indication(//&self,
+        sn_service_to: &mut rtrb::Producer<SNUnitDataRequest>,
+        // actual parameters
         ns_source_address: MacAddr6,
         ns_destination_address: MacAddr6,
         ns_quality_of_service: &Qos,
@@ -787,14 +789,27 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         if let Pdu::EchoRequestPDU { fixed, addr, seg, opts, discard, data  } = pdu {
             if let Some(data_inner) = data {
                 println!("parsing inner Echo Response");
-                println!("got inner Echo Response: {:?}", Pdu::from_buf(data_inner.data));
+                let erp_pdu_inner = Pdu::from_buf(data_inner.data);
+                println!("got inner Echo Response: {:?}", erp_pdu_inner);
                 // respond with echo response
-                //TODO
+                if let Pdu::EchoResponsePDU { fixed, addr, seg, opts, discard, data } = erp_pdu_inner {
+                    //TODO implement correct behavior according to Echo Response function
+                    //TODO add checks - otherwise this can be used for DoS attack ("please bomb that other host")
+                    // send back to sender
+                    sn_service_to.push(SNUnitDataRequest {
+                        sn_source_address: ns_destination_address,
+                        sn_destination_address: ns_source_address,
+                        sn_quality_of_service: crate::dl::Qos::from_ns_quality_of_service(ns_quality_of_service),    //TODO optimize?  //TODO convert NS QoS to SN QoS
+                        sn_userdata: data_inner.data.to_vec()    //TODO security    //TODO optimize?
+                    });
+                } else {
+                    panic!("expected inner echo response PDU inside received echo request")
+                }
             } else {
-                panic!("expected inner echo response PDU inside received echo request");
+                panic!("expected inner echo response PDU inside received echo request (no data part)");
             }
         } else {
-            todo!();
+            todo!("n_unitdata_indication(): unimplemented CLNP PDU type");
         }
     }
 
@@ -862,12 +877,15 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     fn run(&mut self) {
         // read N-UNITDATA-INDICATION from SN
         let sn_service_from_arc = self.sn_service_from.clone();
+        let sn_service_to_arc = self.sn_service_to.clone();
         let _ = thread::spawn(move || {
             let mut sn_service_from = sn_service_from_arc.lock().expect("failed to lock sn_service_from");
+            let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
             loop {
                 if let Ok(n_unitdata_indication) = sn_service_from.pop() {
                     println!("got N UnitData indication: {:?}", n_unitdata_indication);
                     Self::n_unitdata_indication(
+                        &mut *sn_service_to,
                         n_unitdata_indication.ns_source_address,
                         n_unitdata_indication.ns_destination_address,
                         &n_unitdata_indication.ns_quality_of_service,
