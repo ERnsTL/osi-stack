@@ -18,6 +18,13 @@ pub const ETHER_TYPE_CLNP: u16 = 0x8872;  // as per https://datatracker.ietf.org
 #[derive(Debug)]
 pub struct Qos {}
 
+impl Qos {
+    pub fn from_ns_quality_of_service(ns_quality_of_service: &super::n::Qos) -> Self {
+        //TODO implement
+        return Qos{};
+    }
+}
+
 pub trait SubnetworkService<'a> {
     fn new(
         socket: RawPacketStream,
