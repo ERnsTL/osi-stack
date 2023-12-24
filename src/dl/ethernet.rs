@@ -33,11 +33,13 @@ impl<'a> SubnetworkService<'a> for Service {
     }
 
     fn sn_unitdata_request(
-        &mut self,
+        //&mut self,    // TODO optimize - instead of &mut self, we need to hand over buffer and socket
+        buffer_out: &mut [u8],
+        socket: &mut RawPacketStream,
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
         sn_quality_of_service: Qos,
-        mut sn_userdata: n::clnp::Pdu,  //TODO not perfectly abstracted, should be &[u8], but why not write directly into lower layer's buffer?
+        sn_userdata: &[u8],
     ) {
         // send SNSDU (Ethernet frame)
         //TODO optimize - here an Ethernet2 header is allocated, which copies the values from sn_* - better something which borrows the values
@@ -47,18 +49,22 @@ impl<'a> SubnetworkService<'a> for Service {
             ether_type: crate::dl::ETHER_TYPE_CLNP,
         };
         //println!("writing SNSDU...");
-        let mut buffer_out = self.buffer_out.lock().expect("failed to lock buffer");
-        let mut remainder = pkt_out.write_to_slice(&mut *buffer_out).expect("failed writing SNSDU into buffer");
+        //let mut buffer_out = self.buffer_out.lock().expect("failed to lock buffer");
+        let mut remainder = pkt_out.write_to_slice(buffer_out).expect("failed writing SNSDU into buffer");
         //pkt_out.write(&mut self.socket).expect("failed writing frame into socket");
         //TODO optimize is ^ cheaper or below's sn_userdata pdu.into_buf() ?
 
         // send NPDU (CLNP PDU)
         //println!("writing NPDU...");
-        let bytes = sn_userdata.into_buf(true, &mut remainder);
-        self.socket.write(&buffer_out[0..bytes + 14]).expect("could not write buffer into socket");    //TODO +14 is not cleanly abtracted //TODO handle network down - dont crash, but try again
+        //let bytes = sn_userdata.into_buf(true, &mut remainder);
+        let bytes = sn_userdata.len();  //TODO optimize - maybe it makes more sense to use the Vec<u8> which run2() already has
+        for i in 0..sn_userdata.len() {
+            remainder[i] = sn_userdata[i];
+        }
+        socket.write(&buffer_out[0..bytes + 14]).expect("could not write buffer into socket");    //TODO +14 is not cleanly abtracted //TODO handle network down - dont crash, but try again
 
         //println!("flushing DL...");
-        self.socket.flush().expect("failed to flush socket");
+        socket.flush().expect("failed to flush socket");
     }
 
     fn flush(&mut self) {
@@ -84,31 +90,32 @@ impl<'a> SubnetworkService<'a> for Service {
             ns_destination_address: sn_destination_address,
             ns_quality_of_service: n_quality_of_service,
             ns_userdata: sn_userdata.to_vec()    //TODO optimize
-        });
+        }).expect("failed to push NUnitDataIndication into n_service_to");
     }
 
     /// read and write to/from socket
     fn run(&self) {
         // read SN-UNITDATA Indications from the socket
-        let buffer_arc = self.buffer_in.clone();
-        let mut socket = self.socket.clone();   //TODO optimize
+        let buffer_in_arc = self.buffer_in.clone();
+        let mut socket1 = self.socket.clone();   //TODO optimize
         let n_service_to_arc = self.n_service_to.clone();
         let _ = thread::spawn(move || {
-            let mut buffer = *buffer_arc.lock().expect("failed to lock buffer_in");
+            //let mut buffer_in = *buffer_in_arc.lock().expect("failed to lock buffer_in");
+            let mut buffer_in = [0u8; 1500];
             let mut n_service_to = n_service_to_arc.lock().expect("failed to lock n_service_to");  //TODO optimize - gets locked on every iteration
             loop {
                 //let mut buffer = [0u8; 1500];
                 println!("reading frame...");
-                let num_bytes = socket.read(&mut buffer).expect("could not read DL frame from socket into buffer"); //TODO handle network down - dont crash, but try again
+                let num_bytes = socket1.read(&mut buffer_in).expect("could not read DL frame from socket into buffer"); //TODO handle network down - dont crash, but try again
 
                 // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
-                let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(&buffer).expect("could not parse Ethernet2 header");
+                let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(&buffer_in).expect("could not parse Ethernet2 header");
                 println!("destination: {:x?}  source: {:x?}  ethertype: 0x{:04x}", eth_header.destination(), eth_header.source(), eth_header.ether_type());
                 let mut vlan_len: usize = 0;
                 match eth_header.ether_type() {
                     ether_type::VLAN_TAGGED_FRAME | ether_type::PROVIDER_BRIDGING | ether_type::VLAN_DOUBLE_TAGGED_FRAME => {
-                        let buffer_length = buffer.len();
-                        let vlan_header = SingleVlanHeaderSlice::from_slice(&buffer[eth_header.slice().len()-1..buffer_length-1]).expect("could not parse single VLAN header");
+                        let buffer_length = buffer_in.len();
+                        let vlan_header = SingleVlanHeaderSlice::from_slice(&buffer_in[eth_header.slice().len()-1..buffer_length-1]).expect("could not parse single VLAN header");
                         println!("vlan: {:?}", vlan_header);
                         vlan_len = vlan_header.slice().len();
                         //TODO handle what comes after vlan
@@ -126,18 +133,29 @@ impl<'a> SubnetworkService<'a> for Service {
                     MacAddr6::from(eth_header.source()),
                     MacAddr6::from(eth_header.destination()),
                     qos,
-                    &buffer[0+eth_header.slice().len() .. num_bytes]    //TODO plus VLAN 802.11q (?) header, if present
+                    &buffer_in[0+eth_header.slice().len() .. num_bytes]    //TODO plus VLAN 802.11q (?) header, if present
                 );
             }
         });
 
         // read SN-UNITDATA-REQUEST from NS
         let n_service_from_arc = self.n_service_from.clone();
+        let mut socket2 = self.socket.clone();   //TODO optimize
+        let buffer_out_arc = self.buffer_out.clone();
         let _ = thread::spawn(move || {
             let mut n_service_from = n_service_from_arc.lock().expect("failed to lock n_service_from");
+            let mut buffer_out = *buffer_out_arc.lock().expect("failed to lock buffer_out");
             loop {
                 if let Ok(sn_unitdata_request) = n_service_from.pop() {
                     println!("got sn_unitdata_request from NS: {:?}", sn_unitdata_request);
+                    Self::sn_unitdata_request(
+                        &mut buffer_out,
+                        &mut socket2,
+                        sn_unitdata_request.sn_source_address,
+                        sn_unitdata_request.sn_destination_address,
+                        sn_unitdata_request.sn_quality_of_service,
+                        sn_unitdata_request.sn_userdata.as_slice()  //TODO optimize
+                    );
                 }
                 thread::sleep(std::time::Duration::from_millis(500));
             }

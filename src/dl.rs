@@ -25,17 +25,21 @@ pub trait SubnetworkService<'a> {
         n_service_to: rtrb::Producer<NUnitDataIndication>,
     ) -> Self where Self: Sized;    //TODO make network service exchangeable without requiring "dyn" (optimize)
     /// called by NS
-    fn sn_unitdata_request(&mut self,
+    fn sn_unitdata_request(//&mut self,
+        buffer_out: &mut [u8],
+        socket: &mut RawPacketStream,
+        // actual parameters
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
         sn_quality_of_service: Qos,
-        sn_userdata: crate::n::clnp::Pdu
+        sn_userdata: &[u8],
     );
     /// called by NS
     fn flush(&mut self);
     /// called by run()
     fn sn_unitdata_indication(//&self,
         n_service_to: &mut rtrb::Producer<NUnitDataIndication>,
+        // actual parameters
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
         sn_quality_of_service: Qos,
