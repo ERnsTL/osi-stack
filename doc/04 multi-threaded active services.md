@@ -173,5 +173,5 @@ Goal:  list of tests (PICS)
 ## Do
 
 * The chosen architecture are bounded ringbuffers, one for each direction between SN and NS.
-* Rust is clunky in regards to tracing which fields of "self" are actually touched in a method - it just locks whole self. This leads to requiring inner mutability and passing the required fields from self via parameters.
-* Anyway, it seems to work now. Looking forward to see how this new architecture will behave when a layer needs certain internal state - without access to self.
+* Rust is clunky in regards to tracing which fields of "self" are actually touched in a method - it just locks whole self. This leads to requiring inner mutability and passing the required fields from self via parameters. I hope that long-term, there is a better way. Maybe the Application layer is the top object can hierarchically own all layers below it, after all.
+* Anyway, it works for now. Looking forward to see how this new architecture will behave when a layer needs certain internal state - without access to self.
