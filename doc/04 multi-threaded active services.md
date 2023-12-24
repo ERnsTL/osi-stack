@@ -5,6 +5,7 @@
 
 * Achieve ability for two systems to send and receive Echo Requests and Echo Responses to each other.
 * Perform necessary code restructuring to allow that.
+* Add Echo Response function to actually respond to incoming Echo Request PDUs.
 
 ---
 
@@ -171,4 +172,6 @@ Goal:  list of tests (PICS)
 
 ## Do
 
-* ...
+* The chosen architecture are bounded ringbuffers, one for each direction between SN and NS.
+* Rust is clunky in regards to tracing which fields of "self" are actually touched in a method - it just locks whole self. This leads to requiring inner mutability and passing the required fields from self via parameters.
+* Anyway, it seems to work now. Looking forward to see how this new architecture will behave when a layer needs certain internal state - without access to self.
