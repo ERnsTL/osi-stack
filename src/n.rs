@@ -23,7 +23,7 @@ pub trait NetworkService<'a> {
         ns_userdata: &'a [u8]
     );
     /// called by SN
-    fn n_unitdata_indication(&self,
+    fn n_unitdata_indication(//&self,
         ns_source_address: MacAddr6,
         ns_destination_address: MacAddr6,
         ns_quality_of_service: &Qos,
@@ -94,13 +94,15 @@ impl ToString for Nsap {
     }
 }
 
+#[derive(Debug)]
 pub struct Qos {
     //TODO
 }
 
+#[derive(Debug)]
 pub struct NUnitDataIndication {
     pub ns_source_address: MacAddr6,
     pub ns_destination_address: MacAddr6,
     pub ns_quality_of_service: crate::n::Qos,
-    pub ns_userdata: Vec<u8>
+    pub ns_userdata: Vec<u8>    //TODO optimize copying?
 }

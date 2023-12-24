@@ -55,6 +55,9 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     //TODO optimize?
     sn.run();
 
+    // start NS
+    ns.run();
+
     // NOTE: must return sn with the contained RawPacketStream, otherwise it goes out of scope, even though owned by the threads in sn.run(),
     // but they have only clones. The original must not trigger its free(). So we return it...
     return (sn, ns);  //TODO instead of NS, return likely the ACSE for registering applications

@@ -1,5 +1,5 @@
 use crate::dl::SNUnitDataRequest;
-use std::{collections::HashMap, io::Error};
+use std::{collections::HashMap, io::Error, thread, sync::{Arc, Mutex}};
 use advmac::MacAddr6;
 
 use super::{Nsap, Qos, NUnitDataIndication};
@@ -675,7 +675,7 @@ pub struct Service<'a> {
 
     // underlying service assumed by the protocol = subnet service on data link layer
     sn_service_to: rtrb::Producer<SNUnitDataRequest>,
-    sn_service_from: rtrb::Consumer<NUnitDataIndication>,
+    sn_service_from: Arc<Mutex<rtrb::Consumer<NUnitDataIndication>>>,
 }
 
 impl<'a> super::NetworkService<'a> for Service<'a> {
@@ -689,7 +689,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             known_hosts: HashMap::new(),
             network_entity_title: network_entity_title,
             sn_service_to: sn_service_to,
-            sn_service_from: sn_service_from,
+            sn_service_from: Arc::new(Mutex::new(sn_service_from)),
         }
     }
 
@@ -776,7 +776,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     }
 
     //TODO implement properly (PDU decomposition)
-    fn n_unitdata_indication(&self,
+    fn n_unitdata_indication(//&self,
         ns_source_address: MacAddr6,
         ns_destination_address: MacAddr6,
         ns_quality_of_service: &Qos,
@@ -860,7 +860,22 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     }
 
     fn run(&mut self) {
-        todo!();
+        // read N-UNITDATA-INDICATION from SN
+        let sn_service_from_arc = self.sn_service_from.clone();
+        let _ = thread::spawn(move || {
+            let mut sn_service_from = sn_service_from_arc.lock().expect("failed to lock sn_service_from");
+            loop {
+                if let Ok(n_unitdata_indication) = sn_service_from.pop() {
+                    println!("got N UnitData indication: {:?}", n_unitdata_indication);
+                    Self::n_unitdata_indication(
+                        n_unitdata_indication.ns_source_address,
+                        n_unitdata_indication.ns_destination_address,
+                        &n_unitdata_indication.ns_quality_of_service,
+                        &n_unitdata_indication.ns_userdata
+                    );
+                }
+            }
+        });
     }
 
     // 6.1
