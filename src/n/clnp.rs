@@ -856,7 +856,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             sn_destination_address: destination_address.local_address,
             sn_quality_of_service: sn_quality_of_service,
             sn_userdata: thevec,
-        });
+        }).expect("failed to push SNUnitDataRequest into sn_service");
     }
 
     fn run(&mut self) {

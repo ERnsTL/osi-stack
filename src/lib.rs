@@ -49,11 +49,20 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
         ns.add_known_host(host.0.to_owned(), host.1);   //TODO optimize clone
     }
 
-    // run stack
-    let _ = thread::spawn(move || {
+    // start SN
+    //let _ = thread::spawn(move || {
         sn.run();
+    //});
+    /*
+    let _ = thread::spawn(|| {
+        sn.run2();
     });
-    ns.run();
+    */
+    /*
+    let _ = thread::spawn(move || {
+        ns.run();
+    });
+    */
 
     return ns;  //TODO instead of NS, return likely the ACSE for registering applications
 }

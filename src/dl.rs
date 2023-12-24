@@ -15,6 +15,7 @@ pub const ETHER_TYPE_CLNP: u16 = 0x8872;  // as per https://datatracker.ietf.org
 
 // is a subnetwork-dependent QoS code, different from the OSI NS QoS codes
 // TODO is ^ true?
+#[derive(Debug)]
 pub struct Qos {}
 
 pub trait SubnetworkService<'a> {
@@ -40,9 +41,11 @@ pub trait SubnetworkService<'a> {
         sn_quality_of_service: Qos,
         sn_userdata: &'a [u8]
     );
-    fn run(&mut self);
+    fn run(&self);
+    fn run2(&self);
 }
 
+#[derive(Debug)]
 pub struct SNUnitDataRequest {
     pub sn_source_address: MacAddr6,
     pub sn_destination_address: MacAddr6,
