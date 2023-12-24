@@ -11,7 +11,6 @@ pub trait NetworkService<'a> {
         sn_service_to: rtrb::Producer<SNUnitDataRequest>,
         sn_service_from: rtrb::Consumer<NUnitDataIndication>,
     ) -> Self;
-    //TODO this ^ is not nicely abstracted, should allow all implementors of SubnetService, but then compiler suggests dyn, which has runtime cost :-(
     fn add_serviced_nsap(&mut self, authority: u16, area: u16, sub_area: u16, remainder: MacAddr6);
     fn add_serviced_subnet_nsap(&mut self, net: u16, sub_net: u16, macaddr: MacAddr6);
     fn resolve_nsap(&self, system_title: &str) -> Option<&Nsap>;
