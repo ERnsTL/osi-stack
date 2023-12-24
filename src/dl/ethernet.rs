@@ -65,6 +65,7 @@ impl<'a> SubnetworkService<'a> for Service {
 
         //println!("flushing DL...");
         socket.flush().expect("failed to flush socket");
+        println!("sent");
     }
 
     fn flush(&mut self) {
@@ -100,8 +101,8 @@ impl<'a> SubnetworkService<'a> for Service {
         let mut socket1 = self.socket.clone();   //TODO optimize
         let n_service_to_arc = self.n_service_to.clone();
         let _ = thread::spawn(move || {
-            //let mut buffer_in = *buffer_in_arc.lock().expect("failed to lock buffer_in");
-            let mut buffer_in = [0u8; 1500];
+            let mut buffer_in = *buffer_in_arc.lock().expect("failed to lock buffer_in");
+            //let mut buffer_in = [0u8; 1500];
             let mut n_service_to = n_service_to_arc.lock().expect("failed to lock n_service_to");  //TODO optimize - gets locked on every iteration
             loop {
                 //let mut buffer = [0u8; 1500];
@@ -160,8 +161,5 @@ impl<'a> SubnetworkService<'a> for Service {
                 thread::sleep(std::time::Duration::from_millis(500));
             }
         });
-    }
-
-    fn run2(&self) {
     }
 }

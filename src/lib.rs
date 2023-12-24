@@ -22,7 +22,7 @@ mod tests {
 }
 
 // TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
-pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Vec<(&str, &str)>) -> n::clnp::Service<'a> {
+pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Vec<(&str, &str)>) -> (dl::ethernet::Service, n::clnp::Service<'a>) {
     let mut ps = RawPacketStream::new_with_ethertype(dl::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
     ps.bind_with_ethertype(interface_name, dl::ETHER_TYPE_CLNP).expect("failed to bind to interface");
 
@@ -55,5 +55,7 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     //TODO optimize?
     sn.run();
 
-    return ns;  //TODO instead of NS, return likely the ACSE for registering applications
+    // NOTE: must return sn with the contained RawPacketStream, otherwise it goes out of scope, even though owned by the threads in sn.run(),
+    // but they have only clones. The original must not trigger its free(). So we return it...
+    return (sn, ns);  //TODO instead of NS, return likely the ACSE for registering applications
 }

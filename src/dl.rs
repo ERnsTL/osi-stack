@@ -46,7 +46,7 @@ pub trait SubnetworkService<'a> {
         sn_userdata: &'a [u8]
     );
     fn run(&self);
-    fn run2(&self);
+    //fn run2(&self);
 }
 
 #[derive(Debug)]
