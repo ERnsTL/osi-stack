@@ -9,11 +9,24 @@ Currently featuring:
 * parts of CLNP over ...
 * Ethernet Subnetwork Service
 * via Ethernet2 header.
+* Ethernet SN:
+  * PDUs implemented.
+  * Functions working, but need to check conformance.
+  * Primitives implemented (SN Unitdata request, SN Unitdata indication).
+* CLNP NS:
+  * Most CLNP NS PDUs implemented (Data PDU, Echo Request, Echo Response).
+  * Functions partly implemented
+  * Primitives mostly implemented.
 * Simple static resolving of system-title based NSAP to SNPA address.
 * Simple OSI ping application
 
 Working on:
 
+* Full Echo Request and Echo Response handling
+* Finishing CLNP primitives (N unitdata request and indication).
+* Finishing CLNP functions.
+* Finishing SN functions.
+* CLNP options part detailed support.
 * CLNP non-segmenting subset and then
 * CLNP full protocol.
 
