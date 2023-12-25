@@ -832,12 +832,16 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                 //TODO optimize correlation data can be just meaningless u8 data instead of nice u16 be/ne data
                 let correlation_data = u16::from_ne_bytes([correlation_data_u8[0], correlation_data_u8[1]].try_into().expect("failed to convert correlation data from ne bytes"));
                 if let Some(time_sent) = table.remove(&correlation_data) {
-                    info!("echo response after {}", now - time_sent);
+                    info!("echo response after {}  {}ms  {}us  {}ns",
+                        now - time_sent,
+                        (now - time_sent).num_milliseconds(),
+                        (now - time_sent).num_microseconds().expect("failed to convert duration for display"),
+                        (now - time_sent).num_nanoseconds().expect("failed to convert duration for display")
+                    );
+                    //info!("echo response after {}us", (now - time_sent).num_microseconds().expect("failed to convert duration for display"));
                 } else {
                     info!("stray Echo Response PDU received: failed to correlate");
                 }
-
-                //TODO correlation table maintenance - but should be done in separate thread
             }
             _ => { todo!("n_unitdata_indication(): unimplemented CLNP PDU type"); }
         }
