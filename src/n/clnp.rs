@@ -11,7 +11,7 @@ pub fn parse_macaddr(instr: &str) -> Result<MacAddr6, advmac::ParseError> {
 #[derive(Debug)]
 pub enum Pdu<'a> {
     Inactive { fixed_mini: NFixedPartMiniForInactive<'a>, data: NDataPart<'a> },
-    NDataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
+    DataPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, seg: Option<NSegmentationPart>, opts: Option<NOptionsPart<'a>>, discard: Option<NReasonForDiscardPart<'a>>, data: Option<NDataPart<'a>>},
     // no segmentation, but reason for discard is mandatory
     ErrorReportPDU { fixed: NFixedPart<'a>, addr: NAddressPart<'a>, opts: Option<NOptionsPart<'a>>, discard: NReasonForDiscardPart<'a>, data: Option<NDataPart<'a>> },
     // these are the same as DataPDU / DT PDU
@@ -46,7 +46,7 @@ impl<'a> Pdu<'_> {
                 }
                 return 1 + data.data.len();
             },
-            Self::NDataPDU { fixed, addr, seg, opts, discard, data } |
+            Self::DataPDU { fixed, addr, seg, opts, discard, data } |
             Self::EchoRequestPDU { fixed, addr, seg, opts, discard, data } |
             Self::EchoResponsePDU { fixed, addr, seg, opts, discard, data } => {
                 // prepare octet 5
@@ -275,8 +275,13 @@ impl<'a> Pdu<'_> {
                         //TODO decompose Echo Response contained in the Echo Request PDU data part
 
                         // assemble and return decomposed PDU
-                        let pdu = Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: data_part };
-                        return pdu;
+                        match type_ {
+                            TYPE_DT_PDU => { return Pdu::DataPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: data_part }; },
+                            TYPE_MD_PDU => { return Pdu::MulticastDataPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: data_part }; },
+                            TYPE_ERQ_PDU => { return Pdu::EchoRequestPDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: data_part }; },
+                            TYPE_ERP_PDU => { return Pdu::EchoResponsePDU { fixed: fixed_part, addr: address_part, seg: segmentation_part, opts: options_part, discard: reason_for_discard_part, data: data_part }; },
+                            _ => { todo!(); }
+                        }
                     },
                     _ => {
                         // unknown PDU type
