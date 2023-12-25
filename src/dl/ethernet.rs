@@ -54,7 +54,7 @@ impl<'a> SubnetworkService<'a> for Service {
         };
         //println!("writing SNSDU...");
         //let mut buffer_out = self.buffer_out.lock().expect("failed to lock buffer");
-        let mut remainder = pkt_out.write_to_slice(buffer_out).expect("failed writing SNSDU into buffer");
+        let remainder = pkt_out.write_to_slice(buffer_out).expect("failed writing SNSDU into buffer");
         //pkt_out.write(&mut self.socket).expect("failed writing frame into socket");
         //TODO optimize is ^ cheaper or below's sn_userdata pdu.into_buf() ?
 
