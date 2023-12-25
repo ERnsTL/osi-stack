@@ -926,14 +926,14 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     }
 
     fn run(&mut self,
-        sn2ns_consumer_thread_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
+        sn2ns_consumer_wakeup_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
     ) {
         // read N-UNITDATA-INDICATION from SN
         let sn_service_from_arc = self.sn_service_from.clone();
         let sn_service_to_arc = self.sn_service_to.clone();
         let sn_service_to_wakeup_arc = self.sn_service_to_wakeup.clone();
         let echo_request_correlation_table_arc = self.echo_request_correlation_table.clone();
-        let sn2ns_consumer_thread = thread::Builder::new().name("N CLNP <- SN".to_string()).spawn(move || {
+        let sn2ns_consumer_wakeup = thread::Builder::new().name("N CLNP <- SN".to_string()).spawn(move || {
             // keep permanent lock on this
             let mut sn_service_from = sn_service_from_arc.lock().expect("failed to lock sn_service_from");
             // NOTE: cannot keep permanent lock on sn_service_to because other places need it, too
@@ -961,7 +961,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             }
         }).expect("failed to start thread");
         // put thread handle into well-known place
-        sn2ns_consumer_thread_give.lock().expect("failed to lock sn2ns_consumer_thread on giving side").replace(sn2ns_consumer_thread);
+        sn2ns_consumer_wakeup_give.lock().expect("failed to lock sn2ns_consumer_wakeup (giver)").replace(sn2ns_consumer_wakeup);
 
         // maintenance thread
         let echo_request_correlation_table_arc2 = self.echo_request_correlation_table.clone();

@@ -49,7 +49,7 @@ pub trait SubnetworkService<'a> {
     /// called by run()
     fn sn_unitdata_indication(//&self,
         n_service_to: &mut rtrb::Producer<NUnitDataIndication>,
-        n_service_to_thread: &JoinHandle<Thread>,
+        n_service_to_wakeup: &JoinHandle<Thread>,
         // actual parameters
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
@@ -57,7 +57,7 @@ pub trait SubnetworkService<'a> {
         sn_userdata: &'a [u8]
     );
     fn run(&self,
-        ns2sn_consumer_thread_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
+        ns2sn_consumer_wakeup_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
     );
 }
 

@@ -78,7 +78,7 @@ impl<'a> SubnetworkService<'a> for Service {
 
     fn sn_unitdata_indication(
         n_service_to: &mut rtrb::Producer<NUnitDataIndication>, //TODO optimize clunky - &mut self would be nice but complains about 2 mutable borrows to self
-        n_service_to_thread: &JoinHandle<Thread>,
+        n_service_to_wakeup: &JoinHandle<Thread>,
         // actual parameters
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
@@ -98,24 +98,24 @@ impl<'a> SubnetworkService<'a> for Service {
             ns_quality_of_service: n_quality_of_service,
             ns_userdata: sn_userdata.to_vec()    //TODO optimize
         }).expect("failed to push NUnitDataIndication into n_service_to");
-        n_service_to_thread.thread().unpark();  //TODO optimize thread() call - could be prepared by caller already
+        n_service_to_wakeup.thread().unpark();  //TODO optimize thread() call - could be prepared by caller already
     }
 
     /// read and write to/from socket
     fn run(&self,
-        ns2sn_consumer_thread_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
+        ns2sn_consumer_wakeup_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
     ) {
         // read SN-UNITDATA Indications from the socket
         let buffer_in_arc = self.buffer_in.clone();
         let mut socket1 = self.socket.clone();   //TODO optimize
         let n_service_to_arc = self.n_service_to.clone();
-        let n_service_to_thread_arc = self.n_service_to_wakeup.clone();
+        let n_service_to_wakeup_arc = self.n_service_to_wakeup.clone();
         let _ = thread::Builder::new().name("SN Ethernet <- OS".to_string()).spawn(move || {
             let mut buffer_in = *buffer_in_arc.lock().expect("failed to lock buffer_in");
             //let mut buffer_in = [0u8; 1500];
             let mut n_service_to = n_service_to_arc.lock().expect("failed to lock n_service_to");  //TODO optimize - gets locked on every iteration
-            let n_service_to_thread_outer = n_service_to_thread_arc.lock().expect("failed to lock n_service_to_thread (taker)");
-            let n_service_to_thread = n_service_to_thread_outer.as_ref().unwrap();
+            let n_service_to_wakeup_outer = n_service_to_wakeup_arc.lock().expect("failed to lock n_service_to_wakeup (taker)");
+            let n_service_to_wakeup = n_service_to_wakeup_outer.as_ref().unwrap();
             loop {
                 //let mut buffer = [0u8; 1500];
                 debug!("reading frame...");
@@ -143,7 +143,7 @@ impl<'a> SubnetworkService<'a> for Service {
                 let qos = Qos{};    //TODO optimize allocation
                 Self::sn_unitdata_indication(
                     &mut n_service_to, //TODO optimize clunky - &mut self would be nice but complains about 2 mutable borrows to self
-                    n_service_to_thread,
+                    n_service_to_wakeup,
                     MacAddr6::from(eth_header.source()),
                     MacAddr6::from(eth_header.destination()),
                     qos,
@@ -156,7 +156,7 @@ impl<'a> SubnetworkService<'a> for Service {
         let n_service_from_arc = self.n_service_from.clone();
         let mut socket2 = self.socket.clone();   //TODO optimize
         let buffer_out_arc = self.buffer_out.clone();
-        let ns2sn_consumer_thread = thread::Builder::new().name("SN Ethernet <- N".to_string()).spawn(move || {
+        let ns2sn_consumer_wakeup = thread::Builder::new().name("SN Ethernet <- N".to_string()).spawn(move || {
             let mut n_service_from = n_service_from_arc.lock().expect("failed to lock n_service_from");
             let mut buffer_out = *buffer_out_arc.lock().expect("failed to lock buffer_out");
             loop {
@@ -177,6 +177,6 @@ impl<'a> SubnetworkService<'a> for Service {
             }
         }).expect("failed to start thread");
         // put thread handle into well-known place
-        ns2sn_consumer_thread_give.lock().expect("failed to lock ns2sn_consumer_thread on giving side").replace(ns2sn_consumer_thread);
+        ns2sn_consumer_wakeup_give.lock().expect("failed to lock ns2sn_consumer_wakeup (giver)").replace(ns2sn_consumer_wakeup);
     }
 }

@@ -49,7 +49,7 @@ pub trait NetworkService<'a> {
         ns_quality_of_service: &Qos
     ); //TODO clunky to return the sending Nsap, and even that is not possible inside echo_request() this should be known beforehand, but alas, Rust's no 2nd borrow on ns variable
     fn run(&mut self,
-        sn2ns_consumer_thread_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
+        sn2ns_consumer_wakeup_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
     );
     //TODO
     fn pdu_composition(&self, inactive: bool, ns_source_address: &'a Nsap, ns_destination_address: &'a Nsap, ns_quality_of_service: &'a Qos, ns_userdata: &'a [u8]) -> Vec<crate::n::clnp::Pdu<'a>>;
