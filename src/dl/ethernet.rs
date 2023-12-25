@@ -101,7 +101,7 @@ impl<'a> SubnetworkService<'a> for Service {
         let buffer_in_arc = self.buffer_in.clone();
         let mut socket1 = self.socket.clone();   //TODO optimize
         let n_service_to_arc = self.n_service_to.clone();
-        let _ = thread::spawn(move || {
+        let _ = thread::Builder::new().name("SN Ethernet <- OS".to_string()).spawn(move || {
             let mut buffer_in = *buffer_in_arc.lock().expect("failed to lock buffer_in");
             //let mut buffer_in = [0u8; 1500];
             let mut n_service_to = n_service_to_arc.lock().expect("failed to lock n_service_to");  //TODO optimize - gets locked on every iteration
@@ -144,7 +144,7 @@ impl<'a> SubnetworkService<'a> for Service {
         let n_service_from_arc = self.n_service_from.clone();
         let mut socket2 = self.socket.clone();   //TODO optimize
         let buffer_out_arc = self.buffer_out.clone();
-        let _ = thread::spawn(move || {
+        let _ = thread::Builder::new().name("SN Ethernet <- N".to_string()).spawn(move || {
             let mut n_service_from = n_service_from_arc.lock().expect("failed to lock n_service_from");
             let mut buffer_out = *buffer_out_arc.lock().expect("failed to lock buffer_out");
             loop {

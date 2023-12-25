@@ -916,7 +916,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         let sn_service_from_arc = self.sn_service_from.clone();
         let sn_service_to_arc = self.sn_service_to.clone();
         let echo_request_correlation_table_arc = self.echo_request_correlation_table.clone();
-        let _ = thread::spawn(move || {
+        let _ = thread::Builder::new().name("N CLNP <- SN".to_string()).spawn(move || {
             // keep permanent lock on this
             let mut sn_service_from = sn_service_from_arc.lock().expect("failed to lock sn_service_from");
             // NOTE: cannot keep permanent lock on sn_service_to because other places need it, too
