@@ -9,6 +9,8 @@
 * Add Echo Request correlation table.
 * Add CLNP NS maintenance thread to clean up timed-out Echo Requests from correlation table.
 * Add wake calls to handler threads instead of spinning or sleeping x milliseconds.
+* Add handover of the handler thread joinhandles.
+* Add popping multiple events off the inter-layer connections.
 
 ---
 
