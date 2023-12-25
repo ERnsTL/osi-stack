@@ -11,6 +11,7 @@
 * Add wake calls to handler threads instead of spinning or sleeping x milliseconds.
 * Add handover of the handler thread joinhandles.
 * Add popping multiple events off the inter-layer connections.
+* Change clnp echo_request() to use n_unitdata_request().
 
 ---
 
