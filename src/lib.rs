@@ -1,6 +1,8 @@
 use std::thread;
 use netconfig::Interface;
 use afpacket::sync::RawPacketStream;
+#[macro_use] extern crate log;
+extern crate simplelog; //TODO check the paris feature flag for tags, useful?
 
 pub mod n;
 mod dl;
@@ -23,6 +25,22 @@ mod tests {
 
 // TODO maybe switch to pnet-datalink. but also needs to be fixed for ethertype parameter to socket() and bind()
 pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Vec<(&str, &str)>) -> (dl::ethernet::Service, n::clnp::Service<'a>) {
+    // set up logging
+    simplelog::TermLogger::init(
+        simplelog::LevelFilter::Trace,   // can locally increase this for dev, TODO make configurable via args - but better configure this in Cargo.toml
+        simplelog::ConfigBuilder::default()
+            .set_time_level(simplelog::LevelFilter::Off)
+            .set_thread_level(simplelog::LevelFilter::Info)
+            .set_thread_mode(simplelog::ThreadLogMode::Names)
+            .set_thread_padding(simplelog::ThreadPadding::Right(15))    // maximum thread name length on Linux
+            .set_level_padding(simplelog::LevelPadding::Right)
+            .build(),
+        simplelog::TerminalMode::Mixed, // level error and above to stderr, rest to stdout
+        simplelog::ColorChoice::Auto    // depending on whether interactive or not
+    ).expect("logging init failed");
+    info!("logging initialized");
+
+    // connect raw socket to iterface, filtered by EtherType of interest
     let mut ps = RawPacketStream::new_with_ethertype(dl::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
     ps.bind_with_ethertype(interface_name, dl::ETHER_TYPE_CLNP).expect("failed to bind to interface");
 

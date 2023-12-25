@@ -1,10 +1,12 @@
-use crate::dl::SNUnitDataRequest;
+extern crate simplelog; //TODO check the paris feature flag for tags, useful?
+
 use std::{collections::HashMap, io::Error, thread, sync::{Arc, Mutex}};
 
 use advmac::MacAddr6;
 use rand::Rng;
 use chrono::prelude::*;
 
+use crate::dl::SNUnitDataRequest;
 use super::{Nsap, Qos, NUnitDataIndication};
 
 pub fn parse_macaddr(instr: &str) -> Result<MacAddr6, advmac::ParseError> {
@@ -60,7 +62,7 @@ impl<'a> Pdu<'_> {
                     if fixed.er_error_report { ErErrorReportBit::ONE } else { ErErrorReportBit::ZERO },
                     fixed.type_
                 );
-                println!("composing octet 5 has value: {}", octet5);
+                debug!("composing octet 5 has value: {}", octet5);
 
                 // prepare length indicators
                 //TODO because of setting the values here we have to make it &mut self - make it possible to use &self?
@@ -190,7 +192,7 @@ impl<'a> Pdu<'_> {
                 }
                 // check octet 5
                 (_, _, _, type_) = NFixedPart::decompose_octet5(&buffer[4]);
-                println!("got PDU type_: {}", type_);
+                debug!("got PDU type_: {}", type_);
                 /*
                 // X.233 7.2.6.1 Segmentation permitted
                 if !sp_segmentation_permitted -> segmentation header is not there and value of segment_length field gives the total length of the PDU see 7.2.8 PDU segment length (fixed part) and 7.4.3 Segment offset (segmentation part)
@@ -211,15 +213,15 @@ impl<'a> Pdu<'_> {
                 */
                 match type_ {   //TODO optimize does the ordering of match conditions matter? should most common case be first?
                     TYPE_ER_PDU => {
-                        println!("got an error report PDU");
+                        debug!("got an error report PDU");
                         todo!();
                     },
                     TYPE_DT_PDU | TYPE_MD_PDU | TYPE_ERQ_PDU | TYPE_ERP_PDU => {
                         match type_ {
-                            TYPE_DT_PDU => { println!("got a data PDU"); },
-                            TYPE_MD_PDU => { println!("got a multicast data PDU"); },
-                            TYPE_ERQ_PDU => { println!("got an echo request PDU"); },
-                            TYPE_ERP_PDU => { println!("got an echo response PDU"); },
+                            TYPE_DT_PDU => { debug!("got a data PDU"); },
+                            TYPE_MD_PDU => { debug!("got a multicast data PDU"); },
+                            TYPE_ERQ_PDU => { debug!("got an echo request PDU"); },
+                            TYPE_ERP_PDU => { debug!("got an echo response PDU"); },
                             _ => { todo!(); }
                         }
 
@@ -532,12 +534,12 @@ impl NFixedPart<'_> {
         }
 
         // parse fixed part
-        println!("decomposing octet 5 from value: {}", &buffer[4]);
+        debug!("decomposing octet 5 from value: {}", &buffer[4]);
         let (fixed_part_sp_segmentation_permitted,
             fixed_part_ms_more_segments,
             fixed_part_er_error_report,
             fixed_part_type_) = NFixedPart::decompose_octet5(&buffer[4]);
-        println!("octet 5:  sp_segmentation_permitted={}  ms_more_segments={}  er_error_report={}  type_={}", fixed_part_sp_segmentation_permitted, fixed_part_ms_more_segments, fixed_part_er_error_report, fixed_part_type_);
+        debug!("octet 5:  sp_segmentation_permitted={}  ms_more_segments={}  er_error_report={}  type_={}", fixed_part_sp_segmentation_permitted, fixed_part_ms_more_segments, fixed_part_er_error_report, fixed_part_type_);
         let fixed_part = NFixedPart {
             network_layer_protocol_identifier: &buffer[0],
             length_indicator: Some(&buffer[1]),
@@ -796,13 +798,13 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         ns_userdata: &[u8]
     ) {
         let pdu = Pdu::from_buf(ns_userdata);
-        println!("got CLNP packet: {:?}", pdu);
+        debug!("got CLNP packet: {:?}", pdu);
         match pdu {
             Pdu::EchoRequestPDU { fixed, addr, seg, opts, discard, data  } => {
                 if let Some(data_inner) = data {
-                    println!("parsing inner Echo Response");
+                    debug!("parsing inner Echo Response");
                     let erp_pdu_inner = Pdu::from_buf(data_inner.data);
-                    println!("got inner Echo Response: {:?}", erp_pdu_inner);
+                    debug!("got inner Echo Response: {:?}", erp_pdu_inner);
                     // respond with echo response
                     if let Pdu::EchoResponsePDU { fixed, addr, seg, opts, discard, data } = erp_pdu_inner {
                         //TODO implement correct behavior according to Echo Response function
@@ -830,9 +832,9 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                 //TODO optimize correlation data can be just meaningless u8 data instead of nice u16 be/ne data
                 let correlation_data = u16::from_ne_bytes([correlation_data_u8[0], correlation_data_u8[1]].try_into().expect("failed to convert correlation data from ne bytes"));
                 if let Some(time_sent) = table.remove(&correlation_data) {
-                    println!("echo response after {}", now - time_sent);
+                    info!("echo response after {}", now - time_sent);
                 } else {
-                    println!("stray Echo Response PDU received: failed to correlate");
+                    info!("stray Echo Response PDU received: failed to correlate");
                 }
 
                 //TODO correlation table maintenance - but should be done in separate thread
@@ -873,7 +875,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             source_address = &self.resolve_nsap(self.network_entity_title).expect("failed to get own NSAP");
         }
         //TODO super-clunky
-        println!("echo request from {} to {}: ", source_address.to_string(), destination_address.to_string());
+        info!("echo request from {} to {}: ", source_address.to_string(), destination_address.to_string());
 
         // check length
         //TODO 6.19 d)
@@ -921,7 +923,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             //let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
             loop {
                 if let Ok(n_unitdata_indication) = sn_service_from.pop() {
-                    println!("got N UnitData indication: {:?}", n_unitdata_indication);
+                    debug!("got N UnitData indication: {:?}", n_unitdata_indication);
                     let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
                     Self::n_unitdata_indication(
                         &mut *sn_service_to,

@@ -3,6 +3,7 @@ use std::{io::{Write, Read}, thread, cell::RefCell, sync::{Arc, Mutex}};
 use advmac::MacAddr6;
 use afpacket::sync::RawPacketStream;
 use etherparse::{Ethernet2Header, ether_type, SingleVlanHeaderSlice};
+extern crate simplelog; //TODO check the paris feature flag for tags, useful?
 
 use crate::n::{self, NUnitDataIndication};
 
@@ -65,7 +66,7 @@ impl<'a> SubnetworkService<'a> for Service {
 
         //println!("flushing DL...");
         socket.flush().expect("failed to flush socket");
-        println!("sent");
+        debug!("sent via SN");
     }
 
     fn flush(&mut self) {
@@ -106,25 +107,25 @@ impl<'a> SubnetworkService<'a> for Service {
             let mut n_service_to = n_service_to_arc.lock().expect("failed to lock n_service_to");  //TODO optimize - gets locked on every iteration
             loop {
                 //let mut buffer = [0u8; 1500];
-                println!("reading frame...");
+                debug!("reading frame...");
                 let num_bytes = socket1.read(&mut buffer_in).expect("could not read DL frame from socket into buffer"); //TODO handle network down - dont crash, but try again
 
                 // hand-cooked version, because we dont care about getting IP and TCP/UDP parsed
                 let eth_header = etherparse::Ethernet2HeaderSlice::from_slice(&buffer_in).expect("could not parse Ethernet2 header");
-                println!("destination: {:x?}  source: {:x?}  ethertype: 0x{:04x}", eth_header.destination(), eth_header.source(), eth_header.ether_type());
+                debug!("destination: {:x?}  source: {:x?}  ethertype: 0x{:04x}", eth_header.destination(), eth_header.source(), eth_header.ether_type());
                 let mut vlan_len: usize = 0;
                 match eth_header.ether_type() {
                     ether_type::VLAN_TAGGED_FRAME | ether_type::PROVIDER_BRIDGING | ether_type::VLAN_DOUBLE_TAGGED_FRAME => {
                         let buffer_length = buffer_in.len();
                         let vlan_header = SingleVlanHeaderSlice::from_slice(&buffer_in[eth_header.slice().len()-1..buffer_length-1]).expect("could not parse single VLAN header");
-                        println!("vlan: {:?}", vlan_header);
+                        debug!("vlan: {:?}", vlan_header);
                         vlan_len = vlan_header.slice().len();
                         //TODO handle what comes after vlan
                     },
-                    ether_type::IPV6 => { println!("{}", "got ipv6, ignoring"); }
-                    ether_type::IPV4 => { println!("{}", "got ipv4, ignoring"); }
-                    ETHER_TYPE_CLNP => { println!("ah, got CLNP - feel warmly welcome!"); } //TODO optimize - does the order of match legs affect performance?
-                    _ => { println!("{}", "got unknown, discarding"); }
+                    ether_type::IPV6 => { debug!("{}", "got ipv6, ignoring"); }
+                    ether_type::IPV4 => { debug!("{}", "got ipv4, ignoring"); }
+                    ETHER_TYPE_CLNP => { debug!("ah, got CLNP - feel warmly welcome!"); } //TODO optimize - does the order of match legs affect performance?
+                    _ => { info!("{}", "got unknown EtherType, discarding"); }
                 }
 
                 // send up the stack to Subnetwork Service as SN-UNITDATA Indication
@@ -148,7 +149,7 @@ impl<'a> SubnetworkService<'a> for Service {
             let mut buffer_out = *buffer_out_arc.lock().expect("failed to lock buffer_out");
             loop {
                 if let Ok(sn_unitdata_request) = n_service_from.pop() {
-                    println!("got sn_unitdata_request from NS: {:?}", sn_unitdata_request);
+                    debug!("got sn_unitdata_request from NS: {:?}", sn_unitdata_request);
                     Self::sn_unitdata_request(
                         &mut buffer_out,
                         &mut socket2,

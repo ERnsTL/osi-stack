@@ -40,8 +40,13 @@ advmac = "1.0.3"    # used by pdu+netconfig
 # Inter-Layer communication
 rtrb = "0.3.0"
 
+# Echo Request and Echo Response NPDU correlation
 rand = "0.8.5"
 chrono = "0.4.31"
+
+# remove logging level output more detailed than certain level, at compile-time (!)
+log = {version = "0.4", features = ["max_level_debug", "release_max_level_info"] }
+simplelog = "^0.12.0"
 
 # TODO only lib needs the dependencies - optimize so that binaries dont also have them included
 
