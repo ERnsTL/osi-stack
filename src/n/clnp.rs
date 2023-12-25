@@ -680,7 +680,7 @@ pub struct Service<'a> {
     pub serviced_nsaps: Vec<Nsap>,  //TODO should be via get_serviced_nsap() but this would mean a 2nd borrow (borrow-checker understands direct variable access but if it is done via a method like get_serviced_nsap() then locks the whole service variable and we have a 2nd borrow)
     known_hosts: HashMap<String, Nsap>,
     network_entity_title: &'a str,   // own title
-    echo_request_correlation_table: Arc<Mutex<HashMap<u16, DateTime<Utc>>>>,
+    echo_request_correlation_table: Arc<Mutex<HashMap<u16, DateTime<Utc>>>>,    //TODO harden for collisions //TODO currently this is global correlation - have this per-target-NSAP?
 
     // underlying service assumed by the protocol = subnet service on data link layer
     sn_service_to: Arc<Mutex<rtrb::Producer<SNUnitDataRequest>>>,
