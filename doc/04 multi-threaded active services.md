@@ -6,6 +6,8 @@
 * Achieve ability for two systems to send and receive Echo Requests and Echo Responses to each other.
 * Perform necessary code restructuring to allow that.
 * Add Echo Response function to actually respond to incoming Echo Request PDUs.
+* Add Echo Request correlation table.
+* Add CLNP NS maintenance thread to clean up timed-out Echo Requests from correlation table.
 
 ---
 
