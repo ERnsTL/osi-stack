@@ -1,5 +1,9 @@
 pub mod clnp;
 
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use chrono::prelude::*;
+
 use advmac::MacAddr6;
 
 use crate::dl::SNUnitDataRequest;
@@ -25,6 +29,7 @@ pub trait NetworkService<'a> {
     /// called by SN
     fn n_unitdata_indication(//&self,
         sn_service_to: &mut rtrb::Producer<SNUnitDataRequest>,
+        echo_request_correlation_table: Arc<Mutex<HashMap<u16, DateTime<Utc>>>>,
         // actual parameters
         ns_source_address: MacAddr6,
         ns_destination_address: MacAddr6,

@@ -1,6 +1,9 @@
 use crate::dl::SNUnitDataRequest;
 use std::{collections::HashMap, io::Error, thread, sync::{Arc, Mutex}};
+
 use advmac::MacAddr6;
+use rand::Rng;
+use chrono::prelude::*;
 
 use super::{Nsap, Qos, NUnitDataIndication};
 
@@ -311,6 +314,7 @@ impl<'a> Pdu<'_> {
         source_address: &Nsap,
         destination_address: &Nsap,
         options: &Option<NOptionsPart>, //TODO use that :-)
+        correlation_data: &[u8],    // user data of inner Echo Response PDU
         buffer_scratch: &'a mut [u8]    /* TODO optimize - this is horrible; 
         currently so and Pdu fields mix of & and owned values and Option<> values because 
         Pdu is used for composition (want as many & as possible) and for compositing (have 
@@ -321,7 +325,6 @@ impl<'a> Pdu<'_> {
         let erp_pdu_destination_address = destination_address.to_u8();   //TODO optimize
         let erp_pdu_source_address = source_address.to_u8();
         let mut erp_pdu = Pdu::EchoResponsePDU {
-            //###
             fixed: NFixedPart {
                 network_layer_protocol_identifier: &NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL,
                 length_indicator: None,    // will be filled
@@ -345,7 +348,7 @@ impl<'a> Pdu<'_> {
             opts: None,  // may be present and contain any options from X.233 7.5
             discard: None,
             data: Some(NDataPart {
-                data: &r"xxxxxxx".as_bytes()   //TODO should be correlation number / sequence number
+                data: correlation_data
             })
         };
 
@@ -677,6 +680,7 @@ pub struct Service<'a> {
     pub serviced_nsaps: Vec<Nsap>,  //TODO should be via get_serviced_nsap() but this would mean a 2nd borrow (borrow-checker understands direct variable access but if it is done via a method like get_serviced_nsap() then locks the whole service variable and we have a 2nd borrow)
     known_hosts: HashMap<String, Nsap>,
     network_entity_title: &'a str,   // own title
+    echo_request_correlation_table: Arc<Mutex<HashMap<u16, DateTime<Utc>>>>,
 
     // underlying service assumed by the protocol = subnet service on data link layer
     sn_service_to: Arc<Mutex<rtrb::Producer<SNUnitDataRequest>>>,
@@ -693,6 +697,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             serviced_nsaps: vec![],
             known_hosts: HashMap::new(),
             network_entity_title: network_entity_title,
+            echo_request_correlation_table: Arc::new(Mutex::new(HashMap::new())),
             sn_service_to: Arc::new(Mutex::new(sn_service_to)),
             sn_service_from: Arc::new(Mutex::new(sn_service_from)),
         }
@@ -783,6 +788,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     //TODO implement properly (PDU decomposition)
     fn n_unitdata_indication(//&self,
         sn_service_to: &mut rtrb::Producer<SNUnitDataRequest>,
+        echo_request_correlation_table: Arc<Mutex<HashMap<u16, DateTime<Utc>>>>,
         // actual parameters
         ns_source_address: MacAddr6,
         ns_destination_address: MacAddr6,
@@ -791,30 +797,47 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     ) {
         let pdu = Pdu::from_buf(ns_userdata);
         println!("got CLNP packet: {:?}", pdu);
-        if let Pdu::EchoRequestPDU { fixed, addr, seg, opts, discard, data  } = pdu {
-            if let Some(data_inner) = data {
-                println!("parsing inner Echo Response");
-                let erp_pdu_inner = Pdu::from_buf(data_inner.data);
-                println!("got inner Echo Response: {:?}", erp_pdu_inner);
-                // respond with echo response
-                if let Pdu::EchoResponsePDU { fixed, addr, seg, opts, discard, data } = erp_pdu_inner {
-                    //TODO implement correct behavior according to Echo Response function
-                    //TODO add checks - otherwise this can be used for DoS attack ("please bomb that other host")
-                    // send back to sender
-                    sn_service_to.push(SNUnitDataRequest {
-                        sn_source_address: ns_destination_address,
-                        sn_destination_address: ns_source_address,
-                        sn_quality_of_service: crate::dl::Qos::from_ns_quality_of_service(ns_quality_of_service),    //TODO optimize?  //TODO convert NS QoS to SN QoS
-                        sn_userdata: data_inner.data.to_vec()    //TODO security    //TODO optimize?
-                    });
+        match pdu {
+            Pdu::EchoRequestPDU { fixed, addr, seg, opts, discard, data  } => {
+                if let Some(data_inner) = data {
+                    println!("parsing inner Echo Response");
+                    let erp_pdu_inner = Pdu::from_buf(data_inner.data);
+                    println!("got inner Echo Response: {:?}", erp_pdu_inner);
+                    // respond with echo response
+                    if let Pdu::EchoResponsePDU { fixed, addr, seg, opts, discard, data } = erp_pdu_inner {
+                        //TODO implement correct behavior according to Echo Response function
+                        //TODO add checks - otherwise this can be used for DoS attack ("please bomb that other host")
+                        // send back to sender
+                        sn_service_to.push(SNUnitDataRequest {
+                            sn_source_address: ns_destination_address,
+                            sn_destination_address: ns_source_address,
+                            sn_quality_of_service: crate::dl::Qos::from_ns_quality_of_service(ns_quality_of_service),    //TODO optimize?  //TODO convert NS QoS to SN QoS
+                            sn_userdata: data_inner.data.to_vec()    //TODO security    //TODO optimize?
+                        });
+                    } else {
+                        panic!("expected inner echo response PDU inside received echo request")
+                    }
                 } else {
-                    panic!("expected inner echo response PDU inside received echo request")
+                    panic!("expected inner echo response PDU inside received echo request (no data part)");
                 }
-            } else {
-                panic!("expected inner echo response PDU inside received echo request (no data part)");
+            },
+            Pdu::EchoResponsePDU { fixed, addr, seg, opts, discard, data } => {
+                // correlate
+                let now = Utc::now();
+                let mut table = echo_request_correlation_table.lock().expect("failed to lock echo_request_correlation_table");
+                let correlation_data_u8 = data.expect("failed to get data part from Echo Response PDU").data;   //TODO harden
+                //TODO check if data has enough bytes for the correlation data
+                //TODO optimize correlation data can be just meaningless u8 data instead of nice u16 be/ne data
+                let correlation_data = u16::from_ne_bytes([correlation_data_u8[0], correlation_data_u8[1]].try_into().expect("failed to convert correlation data from ne bytes"));
+                if let Some(time_sent) = table.remove(&correlation_data) {
+                    println!("echo response after {}", now - time_sent);
+                } else {
+                    println!("stray Echo Response PDU received: failed to correlate");
+                }
+
+                //TODO correlation table maintenance - but should be done in separate thread
             }
-        } else {
-            todo!("n_unitdata_indication(): unimplemented CLNP PDU type");
+            _ => { todo!("n_unitdata_indication(): unimplemented CLNP PDU type"); }
         }
     }
 
@@ -855,6 +878,9 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         // check length
         //TODO 6.19 d)
 
+        // correlation data
+        let correlation_data: u16 = rand::thread_rng().gen();
+
         // compose ERQ PDU
         let mut buffer_scratch = [0u8; 64];
         let mut erq_pdu = Pdu::new_echo_request(
@@ -862,6 +888,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             &source_address,
             &destination_address,
             &options,
+            &correlation_data.to_ne_bytes(),  // no need to convert to bigendian/network encoding, is just for us and we dont need to treat it as a number anyway
             &mut buffer_scratch
         );
 
@@ -877,12 +904,16 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             sn_quality_of_service: sn_quality_of_service,
             sn_userdata: thevec,
         }).expect("failed to push SNUnitDataRequest into sn_service");
+
+        // add entry to correlation table
+        self.echo_request_correlation_table.lock().expect("failed to lock echo_request_correlation_table").insert(correlation_data, Utc::now());
     }
 
     fn run(&mut self) {
         // read N-UNITDATA-INDICATION from SN
         let sn_service_from_arc = self.sn_service_from.clone();
         let sn_service_to_arc = self.sn_service_to.clone();
+        let echo_request_correlation_table_arc = self.echo_request_correlation_table.clone();
         let _ = thread::spawn(move || {
             // keep permanent lock on this
             let mut sn_service_from = sn_service_from_arc.lock().expect("failed to lock sn_service_from");
@@ -894,6 +925,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                     let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
                     Self::n_unitdata_indication(
                         &mut *sn_service_to,
+                        echo_request_correlation_table_arc.clone(), //TODO optimize - for now clone() to avoid "use of moved value"
                         n_unitdata_indication.ns_source_address,
                         n_unitdata_indication.ns_destination_address,
                         &n_unitdata_indication.ns_quality_of_service,

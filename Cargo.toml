@@ -40,6 +40,9 @@ advmac = "1.0.3"    # used by pdu+netconfig
 # Inter-Layer communication
 rtrb = "0.3.0"
 
+rand = "0.8.5"
+chrono = "0.4.31"
+
 # TODO only lib needs the dependencies - optimize so that binaries dont also have them included
 
 [lib]
