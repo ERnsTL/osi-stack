@@ -1,4 +1,4 @@
-use std::{thread::{self, Thread, JoinHandle}, sync::{Arc, Mutex}};
+use std::{thread::{self, Thread, JoinHandle}, sync::{Arc, Mutex}, time::Duration};
 use netconfig::Interface;
 use afpacket::sync::RawPacketStream;
 #[macro_use] extern crate log;
@@ -82,9 +82,10 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     // therefore, interior mutability and because we are multi-threaded, Arc<Mutex<>> is needed. Yay.
     //TODO optimize?
     sn.run(ns2sn_consumer_wakeup);
-
     // start NS
     ns.run(sn2ns_consumer_wakeup);
+    // wait for above run() methods to give their thread wakeup handles
+    thread::sleep(Duration::from_millis(10));
 
     // NOTE: must return sn with the contained RawPacketStream, otherwise it goes out of scope, even though owned by the threads in sn.run(),
     // but they have only clones. The original must not trigger its free(). So we return it...
