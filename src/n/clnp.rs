@@ -953,23 +953,27 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             // NOTE: cannot keep permanent lock on sn_service_to because other places need it, too
             //let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
             loop {
-                if let Ok(n_unitdata_indication) = sn_service_from.pop() {
-                    debug!("got N UnitData indication: {:?}", n_unitdata_indication);
-                    let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
-                    let sn_service_to_wakeup_outer = sn_service_to_wakeup_arc.lock().expect("failed to lock sn_service_to_wakeup (taker)");
-                    let sn_service_to_wakeup = sn_service_to_wakeup_outer.as_ref().expect("sn_service_to_wakeup is none (taker)");
-                    //TODO optimize ^ we can surely take this join handle out and clone it - dont need to lock mutex on every call
-                    Self::n_unitdata_indication(
-                        &mut *sn_service_to,
-                        sn_service_to_wakeup,
-                        echo_request_correlation_table_arc.clone(), //TODO optimize - for now clone() to avoid "use of moved value"
-                        n_unitdata_indication.ns_source_address,
-                        n_unitdata_indication.ns_destination_address,
-                        &n_unitdata_indication.ns_quality_of_service,
-                        &n_unitdata_indication.ns_userdata
-                    );
+                // pop all
+                loop {
+                    if let Ok(n_unitdata_indication) = sn_service_from.pop() {
+                        debug!("got N UnitData indication: {:?}", n_unitdata_indication);
+                        let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
+                        let sn_service_to_wakeup_outer = sn_service_to_wakeup_arc.lock().expect("failed to lock sn_service_to_wakeup (taker)");
+                        let sn_service_to_wakeup = sn_service_to_wakeup_outer.as_ref().expect("sn_service_to_wakeup is none (taker)");
+                        //TODO optimize ^ we can surely take this join handle out and clone it - dont need to lock mutex on every call
+                        Self::n_unitdata_indication(
+                            &mut *sn_service_to,
+                            sn_service_to_wakeup,
+                            echo_request_correlation_table_arc.clone(), //TODO optimize - for now clone() to avoid "use of moved value"
+                            n_unitdata_indication.ns_source_address,
+                            n_unitdata_indication.ns_destination_address,
+                            &n_unitdata_indication.ns_quality_of_service,
+                            &n_unitdata_indication.ns_userdata
+                        );
+                    } else {
+                        break;
+                    }
                 }
-                //TODO pop all ^
                 //TODO even when done, check again, if a new batch has arrived in the meantime (we dont notice a further wakeups while this thread is running)
                 thread::park(); // wait for unpark wakeup call from SN
             }

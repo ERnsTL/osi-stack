@@ -160,18 +160,22 @@ impl<'a> SubnetworkService<'a> for Service {
             let mut n_service_from = n_service_from_arc.lock().expect("failed to lock n_service_from");
             let mut buffer_out = *buffer_out_arc.lock().expect("failed to lock buffer_out");
             loop {
-                if let Ok(sn_unitdata_request) = n_service_from.pop() {
-                    debug!("got sn_unitdata_request from NS: {:?}", sn_unitdata_request);
-                    Self::sn_unitdata_request(
-                        &mut buffer_out,
-                        &mut socket2,
-                        sn_unitdata_request.sn_source_address,
-                        sn_unitdata_request.sn_destination_address,
-                        sn_unitdata_request.sn_quality_of_service,
-                        sn_unitdata_request.sn_userdata.as_slice()  //TODO optimize
-                    );
+                // pop all
+                loop {
+                    if let Ok(sn_unitdata_request) = n_service_from.pop() {
+                        debug!("got sn_unitdata_request from NS: {:?}", sn_unitdata_request);
+                        Self::sn_unitdata_request(
+                            &mut buffer_out,
+                            &mut socket2,
+                            sn_unitdata_request.sn_source_address,
+                            sn_unitdata_request.sn_destination_address,
+                            sn_unitdata_request.sn_quality_of_service,
+                            sn_unitdata_request.sn_userdata.as_slice()  //TODO optimize
+                        );
+                    } else {
+                        break;
+                    }
                 }
-                //TODO pop all ^
                 //TODO even when done, check again, if a new batch has arrived in the meantime (we dont notice a further wakeups while this thread is running)
                 thread::park(); // wait for unpark wakeup call from NS
             }
