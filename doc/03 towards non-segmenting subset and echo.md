@@ -52,3 +52,16 @@ Goals:
 
 * The plan for the next iteration has to be adjusted, to first create the according communication structure between layers in order to allow layers to be active on their own.
 * The stack has to become multi-threaded, thus with multiple active objects, one for each service.
+
+Ideas:
+
+* The subnetwork service must be an active component (thread) blocking on socket.read() and being able to propagate up the stack.
+  * read up is active
+* The network service is called by the upper layers "please deliver this", so it is maybe possible to make it a dead method/function.
+  * push down is active
+* Certain services need to be active in and of themselves to check on timers, purge routing tables ...
+  * services do periodic tasks themselves
+* So 2/3 threads per layer are needed.
+* And we will need mailboxes - shared memory handover of PDUs.
+  * down the stack we package &upperpdu into larger PDU and pass it & down the stack. Upon write() the kernel makes a copy and returns the buffer.
+  * up the stack we trim things from the buffer - by creating an ever smaller view/slice into the layer2 buffer. The buffer remains in ownership of the SubnetworkService. Arriving in destination layer, the layer makes a copy and returns the buffer.

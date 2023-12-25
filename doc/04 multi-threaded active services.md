@@ -14,43 +14,19 @@
 
 ---
 
+05:
+
 * Change clnp echo_request() to use n_unitdata_request().
-* Add dummy SN or dummy raw socket in order to allow performance measuring and tuning.
 * Solving 2 borrows needs to be done:
   * [Thread 1](https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/)
   * [Thread 2](https://stackoverflow.com/questions/70050258/multiple-mutable-borrows-in-rust)
   * For example ns.get_serviced_nsap() and ns.echo_request() results in 2 borrows on ns :-(
-* TODO the subnetwork service must be an active component (thread) blocking on socket.read() and being able to propagate up the stack.
-  * read up is active
-* TODO the network service is called by the upper layers "please deliver this", so it can be a dead method/function.
-  * push down is active
-* TODO certain services need to be active in and of themselves to check on timers, purge routing tables ...
-  * services do periodic tasks themselves
--> 2 threads per layer.
-* and we will need mailboxes - shared memory handover of PDUs.
-  * down the stack we package &upperpdu into larger PDU and pass it & down the stack. Upon write() the kernel makes a copy and returns the buffer.
-  * up the stack we trim things from the buffer - by creating an ever smaller view/slice into the layer2 buffer. The buffer remains in ownership of the SubnetworkService. Arriving in destination layer, the layer makes a copy and returns the buffer.
-
-* add protocol server to be contacted via library and unix socket or should each application create its own stack? well, the network layer handles the network protocol for the whole system and we cannot have 1,2,3,5,10 sockets all bound to the Ethernet interface, each receiving the same packets and handling them x times.
-
 * Implement correct PDU composition function for Inactive Protocol subset.
 * Implement correct PDU decomposition function for Inactive Protocol subset.
 * Implement correct Header Analysis function for Inactive Protocol subset.
 * Check if Inactive Protocol subset should report errors - if ER bit is set, send an error report? But in 6.22 functions table it is not listed that error reports are mandatory for the Inactive subset.
-* Add "osi hosts.txt" support.
-* Add correct NSAP support <-> quick parsing of 49.1.1.macaddress
-* Add discovery of link-local hosts reachable via Ethernet. This is ES-IS protocol and will be added later.
-* Allow parallel receiving and sending via inner_read and inner_write structs.
-* What about ARP and DNS to find hosts on the network?
-* Keeping track of connections DID (? TODO find it again)
-* Routing table dump as in [RFC 1574](https://datatracker.ietf.org/doc/rfc1574/)
-* Implementation of ES-IS protocol (subnetwork coordination? finding other hosts and routes?).
-* Do End systems (ES) also send Hello's to each other? What do they do when they receive such and no Intermediate System (IS AKA Router) is present?
-  * Yes, they do -> ISO 9542 availabe for free via ISO "Publicly Available Standards".
 
----
-
-05:
+06:
 
 * Change implementation to start of Non-Segmenting Protocol subset:
 * Add full Echo Request function.
@@ -58,12 +34,37 @@
 * Add Error Reporting for everything else.
 * Send echo request, echo response.
 
----
-
-06:
+07:
 
 * Add full struct and decomposition of options part resp. parameter meanings.
 * Implement full protocol support.
+
+08:
+
+* Add dummy SN or dummy raw socket in order to allow performance measuring and tuning as well as testing.
+
+09:
+
+* Add "osi hosts.txt" support.
+* Add correct NSAP support <-> quick parsing of 49.1.1.macaddress
+
+10:
+
+* Add discovery of link-local hosts reachable via Ethernet. This is ES-IS protocol and will be added later.
+* Allow parallel receiving and sending via inner_read and inner_write structs.
+* What about ARP and DNS to find hosts on the network?
+* Keeping track of connections DID (? TODO find it again)
+* Implementation of ES-IS protocol (subnetwork coordination? finding other hosts and routes?).
+* Do End systems (ES) also send Hello's to each other? What do they do when they receive such and no Intermediate System (IS AKA Router) is present?
+  * Yes, they do -> ISO 9542 availabe for free via ISO "Publicly Available Standards".
+
+11:
+
+* Routing table dump as in [RFC 1574](https://datatracker.ietf.org/doc/rfc1574/)
+
+xx:
+
+* add protocol server to be contacted via library and unix socket or should each application create its own stack? well, the network layer handles the network protocol for the whole system and we cannot have 1,2,3,5,10 sockets all bound to the Ethernet interface, each receiving the same packets and handling them x times.
 
 Document research in X.233:
 Goal:  list of requirements (must, shall, may) for implementation work packages
@@ -182,3 +183,14 @@ Goal:  list of tests (PICS)
 * The chosen architecture are bounded ringbuffers, one for each direction between SN and NS.
 * Rust is clunky in regards to tracing which fields of "self" are actually touched in a method - it just locks whole self. This leads to requiring inner mutability and passing the required fields from self via parameters. I hope that long-term, there is a better way. Maybe the Application layer is the top object can hierarchically own all layers below it, after all.
 * Anyway, it works for now. Looking forward to see how this new architecture will behave when a layer needs certain internal state - without access to self.
+
+
+## Check
+
+* The iteration led to the goals being met, with round-trip times in the same order of magnitude as calling the ping command with the kernel-integrated IP stack, for example IP 350/400 ms, osi-stack 500/700ms without any optimizations - to the contrary.
+
+
+## Act
+
+* The internal structure and issue of lifetimes still needs to be improved as an implementation try of Clnp::echo_request() using n_unitdata_request() as its backend has failed.
+* Restructuring should have a direction, ie. be based on requirements from the standard, so the next step is to implement further Network Service functions and adjust the structure accordingly, as well as clean up along the way.
