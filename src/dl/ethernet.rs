@@ -159,7 +159,7 @@ impl<'a> SubnetworkService<'a> for Service {
                         sn_unitdata_request.sn_userdata.as_slice()  //TODO optimize
                     );
                 }
-                thread::sleep(std::time::Duration::from_millis(500));
+                thread::sleep(std::time::Duration::from_millis(100));
             }
         });
     }
