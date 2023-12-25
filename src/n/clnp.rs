@@ -762,7 +762,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                 let bytes = pdu.into_buf(true, &mut buffer);
                 let mut thevec: Vec<u8> = Vec::with_capacity(bytes);
                 thevec.extend_from_slice(&buffer[0..bytes]);
-                self.sn_service_to.push(SNUnitDataRequest{
+                self.sn_service_to.lock().expect("could not lock sn_service_to").push(SNUnitDataRequest{
                     sn_source_address: ns_source_address.local_address,
                     sn_destination_address: ns_destination_address.local_address,
                     sn_quality_of_service: crate::dl::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
@@ -866,7 +866,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         let bytes = erq_pdu.into_buf(true, &mut buffer);
         let mut thevec: Vec<u8> = Vec::with_capacity(bytes);
         thevec.extend_from_slice(&buffer[0..bytes]);
-        self.sn_service_to.push(SNUnitDataRequest{
+        self.sn_service_to.lock().expect("failed to lock sn_service_to").push(SNUnitDataRequest{
             sn_source_address: source_address.local_address,
             sn_destination_address: destination_address.local_address,
             sn_quality_of_service: sn_quality_of_service,
@@ -879,11 +879,14 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         let sn_service_from_arc = self.sn_service_from.clone();
         let sn_service_to_arc = self.sn_service_to.clone();
         let _ = thread::spawn(move || {
+            // keep permanent lock on this
             let mut sn_service_from = sn_service_from_arc.lock().expect("failed to lock sn_service_from");
-            let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
+            // NOTE: cannot keep permanent lock on sn_service_to because other places need it, too
+            //let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
             loop {
                 if let Ok(n_unitdata_indication) = sn_service_from.pop() {
                     println!("got N UnitData indication: {:?}", n_unitdata_indication);
+                    let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
                     Self::n_unitdata_indication(
                         &mut *sn_service_to,
                         n_unitdata_indication.ns_source_address,
