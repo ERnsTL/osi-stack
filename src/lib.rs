@@ -27,7 +27,7 @@ mod tests {
 pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Vec<(&str, &str)>) -> (dl::ethernet::Service, n::clnp::Service<'a>) {
     // set up logging
     simplelog::TermLogger::init(
-        simplelog::LevelFilter::Trace,   // can locally increase this for dev, TODO make configurable via args - but better configure this in Cargo.toml
+        simplelog::LevelFilter::Info,   // can locally increase this for dev, TODO make configurable via args - but better configure this in Cargo.toml
         simplelog::ConfigBuilder::default()
             .set_time_level(simplelog::LevelFilter::Off)
             .set_thread_level(simplelog::LevelFilter::Info)
@@ -49,7 +49,7 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
 
     // get MAC address
     let macaddr = iface_config.hwaddress().expect("could not get hardware address of interface");
-    println!("got SNPA address: {}", macaddr);
+    info!("got SNPA address: {}", macaddr);
 
     // dont need it anymore
     drop(iface_config);
