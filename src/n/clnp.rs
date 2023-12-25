@@ -938,6 +938,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                         &n_unitdata_indication.ns_userdata
                     );
                 }
+                thread::sleep(Duration::from_millis(100));  //TODO should be woken up explicitly
             }
         });
 
