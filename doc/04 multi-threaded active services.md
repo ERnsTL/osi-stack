@@ -15,6 +15,7 @@
 
 ---
 
+* Add dummy SN or dummy raw socket in order to allow performance measuring and tuning.
 * Solving 2 borrows needs to be done:
   * [Thread 1](https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/)
   * [Thread 2](https://stackoverflow.com/questions/70050258/multiple-mutable-borrows-in-rust)
