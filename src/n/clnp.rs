@@ -683,6 +683,7 @@ pub struct Service<'a> {
     known_hosts: HashMap<String, Nsap>,
     network_entity_title: &'a str,   // own title
     echo_request_correlation_table: Arc<Mutex<HashMap<u16, DateTime<Utc>>>>,    //TODO harden for collisions //TODO currently this is global correlation - have this per-target-NSAP?
+    buffer_out: [u8;65536],
 
     // underlying service assumed by the protocol = subnet service on data link layer
     sn_service_to: Arc<Mutex<rtrb::Producer<SNUnitDataRequest>>>,
@@ -702,6 +703,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             known_hosts: HashMap::new(),
             network_entity_title: network_entity_title,
             echo_request_correlation_table: Arc::new(Mutex::new(HashMap::new())),
+            buffer_out: [0u8; 65536],   // maximum PDU size possible in NS (fixed part, total segment size) has 16 bit
             sn_service_to: Arc::new(Mutex::new(sn_service_to)),
             sn_service_to_wakeup: sn_service_to_wakeup,
             sn_service_from: Arc::new(Mutex::new(sn_service_from)),
@@ -752,8 +754,8 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     fn n_unitdata_request(
         &mut self,
         ns_destination_title: &str,
-        ns_quality_of_service: &'a Qos,
-        ns_userdata: &'a [u8]
+        ns_quality_of_service: &Qos,
+        ns_userdata: &[u8]
     ) {
         let get_serviced_nsap = self.get_serviced_nsap().expect("no serviced NSAPs").clone();   //TODO optimize clone - again the cannot borrow self 2 times issue
         let dest_nsap = self.resolve_nsap(ns_destination_title).expect("cannot resolve destination host").clone();  //TODO optimize clone - again the cannot borrow self 2 times issue
@@ -865,7 +867,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     ) {
         // destination
         let destination_address: &Nsap;
-        if let Some(destination_title2) = destination_title {
+        if let Some(ref destination_title2) = destination_title {
             // convert to NSAP
             destination_address = self.resolve_nsap(&destination_title2).expect("failed to resolve system-title");
             // Nsap::new_from_network_entity_title(destination_title.unwrap());
@@ -906,7 +908,6 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         );
 
         // send it via data link or subnetwork
-        //### should use n_unitdata_request()
         let sn_quality_of_service = crate::dl::Qos{};  //TODO convert Network Layer QoS to Data Link Layer QoS
         let mut buffer = [0u8; 1500];   //TODO optimize this whole to_buf and transfer to SN
         let bytes = erq_pdu.into_buf(true, &mut buffer);
@@ -919,7 +920,20 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             sn_userdata: thevec,
         }).expect("failed to push SNUnitDataRequest into sn_service");
         // wake up SN thread
-        self.sn_service_to_wakeup.lock().expect("failed to sn_service_to_wake").as_ref().expect("failed to get sn_service_to_wakeup (taker)").thread().unpark();
+        self.sn_service_to_wakeup.lock().expect("failed to lock sn_service_to_wake").as_ref().expect("failed to get sn_service_to_wakeup (taker)").thread().unpark();
+
+        //TODO send properly via n_unitdata_request()
+        //###
+        //TODO remove self.buffer_out
+        /*
+        let mut buffer = [0u8; 1500];   //TODO optimize this whole to_buf and transfer to SN
+        let bytes = erq_pdu.into_buf(true, &mut buffer);
+        self.n_unitdata_request(
+            destination_title.expect("expected destination_title - other not implemented yet").as_str(),
+            quality_of_service,
+            &buffer[0..bytes]
+        );
+        */
 
         // add entry to correlation table
         self.echo_request_correlation_table.lock().expect("failed to lock echo_request_correlation_table").insert(correlation_data, Utc::now());

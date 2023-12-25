@@ -11,10 +11,10 @@
 * Add wake calls to handler threads instead of spinning or sleeping x milliseconds.
 * Add handover of the handler thread joinhandles.
 * Add popping multiple events off the inter-layer connections.
-* Change clnp echo_request() to use n_unitdata_request().
 
 ---
 
+* Change clnp echo_request() to use n_unitdata_request().
 * Add dummy SN or dummy raw socket in order to allow performance measuring and tuning.
 * Solving 2 borrows needs to be done:
   * [Thread 1](https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/)
