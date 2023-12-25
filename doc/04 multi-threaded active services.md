@@ -8,6 +8,7 @@
 * Add Echo Response function to actually respond to incoming Echo Request PDUs.
 * Add Echo Request correlation table.
 * Add CLNP NS maintenance thread to clean up timed-out Echo Requests from correlation table.
+* Add wake calls to handler threads instead of spinning or sleeping x milliseconds.
 
 ---
 
