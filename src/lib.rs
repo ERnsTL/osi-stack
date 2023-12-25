@@ -63,11 +63,11 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     // which may also take a clone of the arc<mutex of a consumer (receiver) thread as needed
     // In every thread where there are pushes into inter-layer connections done, it needs the consumer (receiver) thread handle to wake the receiver up
     // In every thread where there are pops from inter-layer connections done, it needs to give its thread handle into the arc<mutex (the well-known place) where the sender will get it from
-    let (mut sn2ns_producer, mut sn2ns_consumer) = rtrb::RingBuffer::new(7);
-    let (mut ns2sn_producer, mut ns2sn_consumer) = rtrb::RingBuffer::new(7);
+    let (sn2ns_producer, sn2ns_consumer) = rtrb::RingBuffer::new(7);
+    let (ns2sn_producer, ns2sn_consumer) = rtrb::RingBuffer::new(7);
     let sn2ns_consumer_wakeup: Arc<Mutex<Option<JoinHandle<Thread>>>> = Arc::new(Mutex::new(None));
     let ns2sn_consumer_wakeup: Arc<Mutex<Option<JoinHandle<Thread>>>> = Arc::new(Mutex::new(None));
-    let mut sn = dl::ethernet::Service::new(ps, ns2sn_consumer, sn2ns_producer, sn2ns_consumer_wakeup.clone());
+    let sn = dl::ethernet::Service::new(ps, ns2sn_consumer, sn2ns_producer, sn2ns_consumer_wakeup.clone());
     let mut ns = n::clnp::Service::new(network_entity_title, ns2sn_producer, ns2sn_consumer_wakeup.clone(), sn2ns_consumer);
     // set own/serviced NSAPs
     //TODO optimize locking here - maybe it is fine to pack up ns and sn into Arc<Mutex<>> upon calling run()

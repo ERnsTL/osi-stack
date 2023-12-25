@@ -36,7 +36,7 @@ pub fn main() {
     }
 
     // set up network
-    let (mut sn, mut ns) = osistack::new(interface_name, network_entity_title, hosts);
+    let (sn, mut ns) = osistack::new(interface_name, network_entity_title, hosts);
 
     // application logic
 
