@@ -1,4 +1,4 @@
-use std::{io::{Write, Read}, thread, cell::RefCell, sync::{Arc, Mutex}};
+use std::{io::{Write, Read}, thread::{self, Thread, JoinHandle}, cell::RefCell, sync::{Arc, Mutex}};
 
 use advmac::MacAddr6;
 use afpacket::sync::RawPacketStream;
@@ -16,13 +16,15 @@ pub struct Service {
 
     n_service_from: Arc<Mutex<rtrb::Consumer<SNUnitDataRequest>>>,
     n_service_to: Arc<Mutex<rtrb::Producer<NUnitDataIndication>>>,
+    n_service_to_wakeup: Arc<Mutex<Option<JoinHandle<Thread>>>>,
 }
 
 impl<'a> SubnetworkService<'a> for Service {
     fn new(
         socket: RawPacketStream,
         n_service_from: rtrb::Consumer<SNUnitDataRequest>,
-        n_service_to: rtrb::Producer<NUnitDataIndication>
+        n_service_to: rtrb::Producer<NUnitDataIndication>,
+        n_service_to_wakeup: Arc<Mutex<Option<JoinHandle<Thread>>>>
     ) -> Self {
         Service {
             socket: socket,
@@ -30,6 +32,7 @@ impl<'a> SubnetworkService<'a> for Service {
             buffer_out: Arc::new(Mutex::new([0u8; 1500])),
             n_service_from: Arc::new(Mutex::new(n_service_from)),
             n_service_to: Arc::new(Mutex::new(n_service_to)),
+            n_service_to_wakeup: n_service_to_wakeup
         }
     }
 
@@ -75,6 +78,8 @@ impl<'a> SubnetworkService<'a> for Service {
 
     fn sn_unitdata_indication(
         n_service_to: &mut rtrb::Producer<NUnitDataIndication>, //TODO optimize clunky - &mut self would be nice but complains about 2 mutable borrows to self
+        n_service_to_thread: &JoinHandle<Thread>,
+        // actual parameters
         sn_source_address: MacAddr6,
         sn_destination_address: MacAddr6,
         sn_quality_of_service: Qos,
@@ -93,18 +98,24 @@ impl<'a> SubnetworkService<'a> for Service {
             ns_quality_of_service: n_quality_of_service,
             ns_userdata: sn_userdata.to_vec()    //TODO optimize
         }).expect("failed to push NUnitDataIndication into n_service_to");
+        n_service_to_thread.thread().unpark();  //TODO optimize thread() call - could be prepared by caller already
     }
 
     /// read and write to/from socket
-    fn run(&self) {
+    fn run(&self,
+        ns2sn_consumer_thread_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
+    ) {
         // read SN-UNITDATA Indications from the socket
         let buffer_in_arc = self.buffer_in.clone();
         let mut socket1 = self.socket.clone();   //TODO optimize
         let n_service_to_arc = self.n_service_to.clone();
+        let n_service_to_thread_arc = self.n_service_to_wakeup.clone();
         let _ = thread::Builder::new().name("SN Ethernet <- OS".to_string()).spawn(move || {
             let mut buffer_in = *buffer_in_arc.lock().expect("failed to lock buffer_in");
             //let mut buffer_in = [0u8; 1500];
             let mut n_service_to = n_service_to_arc.lock().expect("failed to lock n_service_to");  //TODO optimize - gets locked on every iteration
+            let n_service_to_thread_outer = n_service_to_thread_arc.lock().expect("failed to lock n_service_to_thread (taker)");
+            let n_service_to_thread = n_service_to_thread_outer.as_ref().unwrap();
             loop {
                 //let mut buffer = [0u8; 1500];
                 debug!("reading frame...");
@@ -132,6 +143,7 @@ impl<'a> SubnetworkService<'a> for Service {
                 let qos = Qos{};    //TODO optimize allocation
                 Self::sn_unitdata_indication(
                     &mut n_service_to, //TODO optimize clunky - &mut self would be nice but complains about 2 mutable borrows to self
+                    n_service_to_thread,
                     MacAddr6::from(eth_header.source()),
                     MacAddr6::from(eth_header.destination()),
                     qos,
@@ -144,7 +156,7 @@ impl<'a> SubnetworkService<'a> for Service {
         let n_service_from_arc = self.n_service_from.clone();
         let mut socket2 = self.socket.clone();   //TODO optimize
         let buffer_out_arc = self.buffer_out.clone();
-        let _ = thread::Builder::new().name("SN Ethernet <- N".to_string()).spawn(move || {
+        let ns2sn_consumer_thread = thread::Builder::new().name("SN Ethernet <- N".to_string()).spawn(move || {
             let mut n_service_from = n_service_from_arc.lock().expect("failed to lock n_service_from");
             let mut buffer_out = *buffer_out_arc.lock().expect("failed to lock buffer_out");
             loop {
@@ -159,8 +171,12 @@ impl<'a> SubnetworkService<'a> for Service {
                         sn_unitdata_request.sn_userdata.as_slice()  //TODO optimize
                     );
                 }
-                thread::sleep(std::time::Duration::from_millis(100));
+                //TODO pop all ^
+                //TODO even when done, check again, if a new batch has arrived in the meantime (we dont notice a further wakeups while this thread is running)
+                thread::park(); // wait for unpark wakeup call from NS
             }
-        });
+        }).expect("failed to start thread");
+        // put thread handle into well-known place
+        ns2sn_consumer_thread_give.lock().expect("failed to lock ns2sn_consumer_thread on giving side").replace(ns2sn_consumer_thread);
     }
 }

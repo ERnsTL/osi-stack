@@ -1,6 +1,6 @@
 extern crate simplelog; //TODO check the paris feature flag for tags, useful?
 
-use std::{collections::HashMap, io::Error, thread, sync::{Arc, Mutex}, time::Duration, ops::Sub};
+use std::{collections::HashMap, io::Error, thread::{self, Thread, JoinHandle}, sync::{Arc, Mutex}, time::Duration, ops::Sub};
 
 use advmac::MacAddr6;
 use rand::Rng;
@@ -686,6 +686,7 @@ pub struct Service<'a> {
 
     // underlying service assumed by the protocol = subnet service on data link layer
     sn_service_to: Arc<Mutex<rtrb::Producer<SNUnitDataRequest>>>,
+    sn_service_to_wakeup: Arc<Mutex<Option<JoinHandle<Thread>>>>,
     sn_service_from: Arc<Mutex<rtrb::Consumer<NUnitDataIndication>>>,
 }
 
@@ -693,6 +694,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     fn new(
         network_entity_title: &'a str,
         sn_service_to: rtrb::Producer<SNUnitDataRequest>,
+        sn_service_to_wakeup: Arc<Mutex<Option<JoinHandle<Thread>>>>,
         sn_service_from: rtrb::Consumer<NUnitDataIndication>
     ) -> Service<'a> {
         Service {
@@ -701,6 +703,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             network_entity_title: network_entity_title,
             echo_request_correlation_table: Arc::new(Mutex::new(HashMap::new())),
             sn_service_to: Arc::new(Mutex::new(sn_service_to)),
+            sn_service_to_wakeup: sn_service_to_wakeup,
             sn_service_from: Arc::new(Mutex::new(sn_service_from)),
         }
     }
@@ -780,7 +783,8 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                     sn_quality_of_service: crate::dl::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
                     sn_userdata: thevec,    //TODO not perfect abstraction, but should save us a memcpy
                 });
-                //self.sn_service_to.flush();   //TODO make it flush the socket
+                //self.sn_service_to.flush();   //TODO make it flush the socket - we can control this via unpark
+                self.sn_service_to_wakeup.lock().expect("failed to sn_service_to_wake").as_ref().expect("failed to get sn_service_to_wakeup (taker)").thread().unpark();
             }
             return;
         }
@@ -790,6 +794,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     //TODO implement properly (PDU decomposition)
     fn n_unitdata_indication(//&self,
         sn_service_to: &mut rtrb::Producer<SNUnitDataRequest>,
+        sn_service_to_wakeup: &JoinHandle<Thread>,
         echo_request_correlation_table: Arc<Mutex<HashMap<u16, DateTime<Utc>>>>,
         // actual parameters
         ns_source_address: MacAddr6,
@@ -816,6 +821,8 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                             sn_quality_of_service: crate::dl::Qos::from_ns_quality_of_service(ns_quality_of_service),    //TODO optimize?  //TODO convert NS QoS to SN QoS
                             sn_userdata: data_inner.data.to_vec()    //TODO security    //TODO optimize?
                         });
+                        // wake up SN thread
+                        sn_service_to_wakeup.thread().unpark();
                     } else {
                         panic!("expected inner echo response PDU inside received echo request")
                     }
@@ -899,6 +906,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         );
 
         // send it via data link or subnetwork
+        //### should use n_unitdata_request()
         let sn_quality_of_service = crate::dl::Qos{};  //TODO convert Network Layer QoS to Data Link Layer QoS
         let mut buffer = [0u8; 1500];   //TODO optimize this whole to_buf and transfer to SN
         let bytes = erq_pdu.into_buf(true, &mut buffer);
@@ -910,17 +918,22 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             sn_quality_of_service: sn_quality_of_service,
             sn_userdata: thevec,
         }).expect("failed to push SNUnitDataRequest into sn_service");
+        // wake up SN thread
+        self.sn_service_to_wakeup.lock().expect("failed to sn_service_to_wake").as_ref().expect("failed to get sn_service_to_wakeup (taker)").thread().unpark();
 
         // add entry to correlation table
         self.echo_request_correlation_table.lock().expect("failed to lock echo_request_correlation_table").insert(correlation_data, Utc::now());
     }
 
-    fn run(&mut self) {
+    fn run(&mut self,
+        sn2ns_consumer_thread_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
+    ) {
         // read N-UNITDATA-INDICATION from SN
         let sn_service_from_arc = self.sn_service_from.clone();
         let sn_service_to_arc = self.sn_service_to.clone();
+        let sn_service_to_wakeup_arc = self.sn_service_to_wakeup.clone();
         let echo_request_correlation_table_arc = self.echo_request_correlation_table.clone();
-        let _ = thread::Builder::new().name("N CLNP <- SN".to_string()).spawn(move || {
+        let sn2ns_consumer_thread = thread::Builder::new().name("N CLNP <- SN".to_string()).spawn(move || {
             // keep permanent lock on this
             let mut sn_service_from = sn_service_from_arc.lock().expect("failed to lock sn_service_from");
             // NOTE: cannot keep permanent lock on sn_service_to because other places need it, too
@@ -929,8 +942,12 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                 if let Ok(n_unitdata_indication) = sn_service_from.pop() {
                     debug!("got N UnitData indication: {:?}", n_unitdata_indication);
                     let mut sn_service_to = sn_service_to_arc.lock().expect("failed to lock sn_service_to");
+                    let sn_service_to_wakeup_outer = sn_service_to_wakeup_arc.lock().expect("failed to lock sn_service_to_wakeup (taker)");
+                    let sn_service_to_wakeup = sn_service_to_wakeup_outer.as_ref().expect("sn_service_to_wakeup is none (taker)");
+                    //TODO optimize ^ we can surely take this join handle out and clone it - dont need to lock mutex on every call
                     Self::n_unitdata_indication(
                         &mut *sn_service_to,
+                        sn_service_to_wakeup,
                         echo_request_correlation_table_arc.clone(), //TODO optimize - for now clone() to avoid "use of moved value"
                         n_unitdata_indication.ns_source_address,
                         n_unitdata_indication.ns_destination_address,
@@ -938,9 +955,13 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                         &n_unitdata_indication.ns_userdata
                     );
                 }
-                thread::sleep(Duration::from_millis(100));  //TODO should be woken up explicitly
+                //TODO pop all ^
+                //TODO even when done, check again, if a new batch has arrived in the meantime (we dont notice a further wakeups while this thread is running)
+                thread::park(); // wait for unpark wakeup call from SN
             }
-        });
+        }).expect("failed to start thread");
+        // put thread handle into well-known place
+        sn2ns_consumer_thread_give.lock().expect("failed to lock sn2ns_consumer_thread on giving side").replace(sn2ns_consumer_thread);
 
         // maintenance thread
         let echo_request_correlation_table_arc2 = self.echo_request_correlation_table.clone();

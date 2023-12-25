@@ -2,6 +2,7 @@ pub mod clnp;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::thread::{Thread, JoinHandle};
 use chrono::prelude::*;
 
 use advmac::MacAddr6;
@@ -13,6 +14,7 @@ pub trait NetworkService<'a> {
     fn new(
         network_entity_title: &'a str,
         sn_service_to: rtrb::Producer<SNUnitDataRequest>,
+        sn_service_to_wakeup: Arc<Mutex<Option<JoinHandle<Thread>>>>,
         sn_service_from: rtrb::Consumer<NUnitDataIndication>,
     ) -> Self;
     fn add_serviced_nsap(&mut self, authority: u16, area: u16, sub_area: u16, remainder: MacAddr6);
@@ -29,6 +31,7 @@ pub trait NetworkService<'a> {
     /// called by SN
     fn n_unitdata_indication(//&self,
         sn_service_to: &mut rtrb::Producer<SNUnitDataRequest>,
+        sn_service_to_wakeup: &JoinHandle<Thread>,
         echo_request_correlation_table: Arc<Mutex<HashMap<u16, DateTime<Utc>>>>,
         // actual parameters
         ns_source_address: MacAddr6,
@@ -45,7 +48,9 @@ pub trait NetworkService<'a> {
         options: Option<NOptionsPart>,
         ns_quality_of_service: &Qos
     ); //TODO clunky to return the sending Nsap, and even that is not possible inside echo_request() this should be known beforehand, but alas, Rust's no 2nd borrow on ns variable
-    fn run(&mut self);
+    fn run(&mut self,
+        sn2ns_consumer_thread_give: Arc<Mutex<Option<JoinHandle<Thread>>>>
+    );
     //TODO
     fn pdu_composition(&self, inactive: bool, ns_source_address: &'a Nsap, ns_destination_address: &'a Nsap, ns_quality_of_service: &'a Qos, ns_userdata: &'a [u8]) -> Vec<crate::n::clnp::Pdu<'a>>;
 }

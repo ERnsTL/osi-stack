@@ -1,4 +1,4 @@
-use std::thread;
+use std::{thread::{self, Thread, JoinHandle}, sync::{Arc, Mutex}};
 use netconfig::Interface;
 use afpacket::sync::RawPacketStream;
 #[macro_use] extern crate log;
@@ -38,7 +38,7 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
         simplelog::TerminalMode::Mixed, // level error and above to stderr, rest to stdout
         simplelog::ColorChoice::Auto    // depending on whether interactive or not
     ).expect("logging init failed");
-    info!("logging initialized");
+    info!("osi-stack starting up"); //TODO add version information
 
     // connect raw socket to iterface, filtered by EtherType of interest
     let mut ps = RawPacketStream::new_with_ethertype(dl::ETHER_TYPE_CLNP).expect("failed to create new raw socket on given interface");
@@ -54,11 +54,21 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     // dont need it anymore
     drop(iface_config);
 
-    // start up OSI network service
+    // compose OSI network stack
+    //TODO ability to configure which protocols should be built into the stack
+    // NOTE: producer is where the producer (originator) of a message writes into
+    // and for each consumer we need a thread handle of the consumer (receiver) thread so that it can be woken up
+    // the arc<mutex to receive that handle is given to the Service new() functions
+    // and the arc<mutex to give the handle into is given to the Service run() functions
+    // which may also take a clone of the arc<mutex of a consumer (receiver) thread as needed
+    // In every thread where there are pushes into inter-layer connections done, it needs the consumer (receiver) thread handle to wake the receiver up
+    // In every thread where there are pops from inter-layer connections done, it needs to give its thread handle into the arc<mutex (the well-known place) where the sender will get it from
     let (mut sn2ns_producer, mut sn2ns_consumer) = rtrb::RingBuffer::new(7);
     let (mut ns2sn_producer, mut ns2sn_consumer) = rtrb::RingBuffer::new(7);
-    let mut sn = dl::ethernet::Service::new(ps, ns2sn_consumer, sn2ns_producer);
-    let mut ns = n::clnp::Service::new(network_entity_title, ns2sn_producer, sn2ns_consumer);
+    let sn2ns_consumer_thread: Arc<Mutex<Option<JoinHandle<Thread>>>> = Arc::new(Mutex::new(None));
+    let ns2sn_consumer_thread: Arc<Mutex<Option<JoinHandle<Thread>>>> = Arc::new(Mutex::new(None));
+    let mut sn = dl::ethernet::Service::new(ps, ns2sn_consumer, sn2ns_producer, sn2ns_consumer_thread.clone());
+    let mut ns = n::clnp::Service::new(network_entity_title, ns2sn_producer, ns2sn_consumer_thread.clone(), sn2ns_consumer);
     // set own/serviced NSAPs
     //TODO optimize locking here - maybe it is fine to pack up ns and sn into Arc<Mutex<>> upon calling run()
     ns.add_serviced_subnet_nsap(1, 1, macaddr);
@@ -71,10 +81,10 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     // NOTE: will go out of scope at end of this function, at the same time sn cannot be borrowed 2x for read and write threads
     // therefore, interior mutability and because we are multi-threaded, Arc<Mutex<>> is needed. Yay.
     //TODO optimize?
-    sn.run();
+    sn.run(ns2sn_consumer_thread);
 
     // start NS
-    ns.run();
+    ns.run(sn2ns_consumer_thread);
 
     // NOTE: must return sn with the contained RawPacketStream, otherwise it goes out of scope, even though owned by the threads in sn.run(),
     // but they have only clones. The original must not trigger its free(). So we return it...
