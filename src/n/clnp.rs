@@ -1,6 +1,6 @@
 extern crate simplelog; //TODO check the paris feature flag for tags, useful?
 
-use std::{collections::HashMap, io::Error, thread, sync::{Arc, Mutex}};
+use std::{collections::HashMap, io::Error, thread, sync::{Arc, Mutex}, time::Duration, ops::Sub};
 
 use advmac::MacAddr6;
 use rand::Rng;
@@ -934,6 +934,33 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                         &n_unitdata_indication.ns_userdata
                     );
                 }
+            }
+        });
+
+        // maintenance thread
+        let echo_request_correlation_table_arc2 = self.echo_request_correlation_table.clone();
+        let _ = thread::Builder::new().name("N CLNP".to_string()).spawn(move || {
+            let timeout = chrono::Duration::seconds(5);
+            loop {
+                // clean up old Echo Request correlations
+                {
+                    let now = Utc::now();
+                    let mut table = echo_request_correlation_table_arc2.lock().expect("failed to lock echo_request_correlation_table");
+                    // NOTE: not possible to remove entries during iteration for loop, so we collect the keys to be removed and the remove them
+                    let timedout: Vec<u16> = table
+                        .iter()
+                        .filter(|&(_, &v)| now - v > timeout)
+                        .map(|(k, _)| k.clone())
+                        .collect();
+                    for key in timedout {
+                        // remove old entry
+                        info!("Echo request timed out");    //TODO dont know to which NSAP this timeout belongs
+                        table.remove(&key);
+                    }
+                }   // release lock
+
+                // sleep
+                thread::sleep(Duration::from_millis(1000))
             }
         });
     }
