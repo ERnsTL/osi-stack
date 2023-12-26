@@ -854,7 +854,20 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                     info!("stray Echo Response PDU received: failed to correlate");
                 }
             }
-            _ => { todo!("n_unitdata_indication(): unimplemented CLNP PDU type"); }
+            Pdu::DataPDU { fixed, addr, seg, opts, discard, data } => {
+                debug!("n_unitdata_indication(): got data PDU");
+                todo!();
+            }
+            Pdu::MulticastDataPDU { fixed, addr, seg, opts, discard, data } => {
+                debug!("n_unitdata_indication(): got multicast data PDU");
+                todo!();
+            }
+            Pdu::ErrorReportPDU { fixed, addr, opts, discard, data } => {
+                debug!("n_unitdata_indication(): got error report PDU");
+                todo!();
+                //TODO correlate to previously-sent PDU (how?)
+            }
+            _ => { info!("n_unitdata_indication(): unknown CLNP PDU type"); }
         }
     }
 
