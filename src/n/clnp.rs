@@ -751,6 +751,8 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         return self.serviced_nsaps.get(0);
     }
 
+    //TODO it seems this should be used only for CLNP Data PDUs (and if they go to a Multicast address, then incidentially Multicast Data PDUs) but not for Echo Request PDUs
+    // because the N-UNITDATA-REQUEST does not have a parameter for CLNP PDU type so there is no way to select composition of an Echo Request PDU
     fn n_unitdata_request(
         &mut self,
         ns_destination_title: &str,
