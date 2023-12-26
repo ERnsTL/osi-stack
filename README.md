@@ -33,6 +33,7 @@ Working on:
 Goal:
 
 * Full coverage of the OSI protocols up to CASE (ACSE, RTSE, ROSE).
+  * Exceptions: Connection-oriented Subnetwork (because Ethernet is not connection-oriented but may be relevant for an other SN/DL providing the service - have to see), Connection-oriented Network Service (does that even exist?). (TODO Are these needed for any major Standards based on OSI?)
 * Routing protocols ES-IS, IS-IS and IDRP.
 * LLC header support.
 * Use of IP suite of protocols for carrying OSI PDUs
