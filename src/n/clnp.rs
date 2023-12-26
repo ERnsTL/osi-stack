@@ -856,7 +856,12 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             }
             Pdu::DataPDU { fixed, addr, seg, opts, discard, data } => {
                 debug!("n_unitdata_indication(): got data PDU");
-                todo!();
+                if let Some(datapart) = data {
+                    info!("data PDU contents: {:?}", datapart.data);
+                } else {
+                    info!("data PDU contents: None");
+                }
+                //TODO implement further functions
             }
             Pdu::MulticastDataPDU { fixed, addr, seg, opts, discard, data } => {
                 debug!("n_unitdata_indication(): got multicast data PDU");
