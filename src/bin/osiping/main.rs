@@ -45,14 +45,13 @@ pub fn main() {
     //let source_nsap = ns.get_serviced_nsap().expect("failed to get own serviced NSAP");
     //TODO fix ^ 2nd borrow, Rust's borrow checker cannot look into functions which fields they actually lock
     loop {
-        //println!("echo request from {}:", source_nsap.to_string());
-        /*
+        // normal data
         ns.n_unitdata_request(
             dest_host,  //TODO change to proper, which is NSAP address - there is no echo service on DL layer
             &qos,
-            r"test".as_bytes()
+            r"testdata".as_bytes()
         );
-        */
+        // echo request
         let source_nsap = ns.echo_request(
             Some(dest_host.to_owned()), //TODO optimize clone
             None,
