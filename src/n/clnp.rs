@@ -809,6 +809,11 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         let pdu = Pdu::from_buf(ns_userdata);
         debug!("got CLNP packet: {:?}", pdu);
         match pdu {
+            Pdu::Inactive { fixed_mini, data } => {
+                debug!("n_unitdata_indication(): got inactive protocol subset packet");
+                info!("Inactive subset packet data: {:?}", data.data);
+                //TODO implement further functions
+            },
             Pdu::EchoRequestPDU { fixed, addr, seg, opts, discard, data  } => {
                 if let Some(data_inner) = data {
                     debug!("parsing inner Echo Response");
@@ -857,9 +862,9 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             Pdu::DataPDU { fixed, addr, seg, opts, discard, data } => {
                 debug!("n_unitdata_indication(): got data PDU");
                 if let Some(datapart) = data {
-                    info!("data PDU contents: {:?}", datapart.data);
+                    info!("data PDU data: {:?}", datapart.data);
                 } else {
-                    info!("data PDU contents: None");
+                    info!("data PDU data: None");
                 }
                 //TODO implement further functions
             }
