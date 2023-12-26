@@ -4,6 +4,8 @@
 ## Plan
 
 * Change clnp echo_request() to use n_unitdata_request().
+* Find out it echo request function should use n-unitdata-request primitive, because latter one does not have parameter to select PDU type.
+---
 * Solving 2 borrows needs to be done:
   * [Thread 1](https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/)
   * [Thread 2](https://stackoverflow.com/questions/70050258/multiple-mutable-borrows-in-rust)
@@ -12,8 +14,6 @@
 * Implement correct PDU decomposition function for Inactive Protocol subset.
 * Implement correct Header Analysis function for Inactive Protocol subset.
 * Check if Inactive Protocol subset should report errors - if ER bit is set, send an error report? But in 6.22 functions table it is not listed that error reports are mandatory for the Inactive subset.
-
----
 
 06:
 
