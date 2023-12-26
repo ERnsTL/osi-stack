@@ -6,9 +6,6 @@
 * Change clnp echo_request() to use n_unitdata_request().
 * Find out it echo request function should use n-unitdata-request primitive, because latter one does not have parameter to select PDU type.
 ---
-* CONS = Connection-oriented NS, but is called Connection-Mode NS.
-* Then there is the "connection-oriented" Session and Presentation Protocol.
-* Connectionless-Mode is often abbreviated "Connectionless".
 * Solving 2 borrows needs to be done:
   * [Thread 1](https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/)
   * [Thread 2](https://stackoverflow.com/questions/70050258/multiple-mutable-borrows-in-rust)
@@ -168,6 +165,13 @@ Goal:  list of tests (PICS)
   * TODO
 * annex A - PICS proforma
   * TODO
+
+Abbreviations:
+
+* Connection-oriented, connection-mode, connectionless-mode:
+  * CONS = Connection-oriented NS, but is called Connection-Mode NS. And the Protocol is called CLNP (Connection-less Network Protocol) and ... no such protocol for the connection-mode network service, this would be for example provided by ISDN or X.25 - see X.223 "Use of X.25 to provide the OSI connection-mode network service for ITU-T applications", which also contains the 4.1 Network service abbreviations:  CONS = Connection-Mode Network Service. Ha, found an inconsistency.
+  * Then there is the "connection-oriented" Session and Presentation Protocol as well as "connection-less mode" versions of these two.
+  * Connectionless-Mode is often abbreviated "Connectionless".
 
 
 ## Do
