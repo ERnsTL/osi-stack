@@ -778,14 +778,14 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                 let bytes = pdu.into_buf(true, &mut buffer);
                 let mut thevec: Vec<u8> = Vec::with_capacity(bytes);
                 thevec.extend_from_slice(&buffer[0..bytes]);
-                self.sn_service_to.lock().expect("could not lock sn_service_to").push(SNUnitDataRequest{
+                self.sn_service_to.lock().expect("failed to lock sn_service_to").push(SNUnitDataRequest{
                     sn_source_address: ns_source_address.local_address,
                     sn_destination_address: ns_destination_address.local_address,
                     sn_quality_of_service: crate::dl::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
                     sn_userdata: thevec,    //TODO not perfect abstraction, but should save us a memcpy
                 }).expect("failed to push into sn_service_to, SN-UNITDATA-REQUEST lost because of congestion"); //TODO congestion situation - apply congestion function
                 //self.sn_service_to.flush();   //TODO make it flush the socket - we can control this via unpark
-                self.sn_service_to_wakeup.lock().expect("failed to sn_service_to_wake").as_ref().expect("failed to get sn_service_to_wakeup (taker)").thread().unpark();
+                self.sn_service_to_wakeup.lock().expect("failed to lock sn_service_to_wake").as_ref().expect("failed to get sn_service_to_wakeup (taker)").thread().unpark();
             }
             return;
         }
