@@ -44,6 +44,10 @@ Goal:
 * X.400
 * X.500
 * X.400 EDI
+* X.601
+* X.605
+* X.609
+* and others in X-Series
 * Linux kernel module for layer 2,3,4
 * multi-platform support (Linux, Mac, Windows)
 
