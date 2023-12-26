@@ -1039,20 +1039,6 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     }
 }
 
-/*
-impl Service<'_> {
-    // TODO only inactive implemented
-    fn n_unitdata_request_internal(
-        &mut self,
-        ns_source_address: &Nsap,
-        ns_destination_address: &Nsap,
-        ns_quality_of_service: &Qos,
-        ns_userdata: &[u8]
-    ) {
-    }
-}
-*/
-
 //TODO
 fn can_use_inactive_subset(ns_source_address: &Nsap, ns_destination_address: &Nsap) -> bool {
     // TODO check if on same subnetwork (AKA in same Ethernet segment)
