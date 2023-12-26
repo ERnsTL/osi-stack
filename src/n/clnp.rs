@@ -808,7 +808,11 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
         match pdu {
             Pdu::Inactive { fixed_mini, data } => {
                 debug!("n_unitdata_indication(): got inactive protocol subset packet");
-                info!("Inactive subset packet data ({} bytes, padded by SN): {:?}", data.data.len(), data.data);
+                if let Ok(thestr) = std::str::from_utf8(&data.data) {
+                    info!("Inactive subset packet data ({} bytes, padded by SN): {}", data.data.len(), thestr);
+                } else {
+                    info!("Inactive subset packet data ({} bytes, padded by SN): {:?}", data.data.len(), data.data);
+                }
                 //TODO implement further functions
             },
             Pdu::EchoRequestPDU { fixed, addr, seg, opts, discard, data  } => {
