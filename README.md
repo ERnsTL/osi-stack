@@ -17,14 +17,14 @@ Currently featuring:
   * Most CLNP NS PDUs implemented (Data PDU, Echo Request, Echo Response).
   * Functions partly implemented
   * Primitives mostly implemented.
+  * Echo Request and Echo Response handling and "ping" roundtrip
 * Simple static resolving of system-title based NSAP to SNPA address.
 * Simple OSI ping application
 
 Working on:
 
-* Full Echo Request and Echo Response handling
 * Finishing CLNP primitives (N unitdata request and indication).
-* Finishing CLNP functions.
+* Finishing CLNP functions in detail.
 * Finishing SN functions.
 * CLNP options part detailed support.
 * CLNP non-segmenting subset and then
@@ -33,7 +33,7 @@ Working on:
 Goal:
 
 * Full coverage of the OSI protocols up to CASE (ACSE, RTSE, ROSE).
-  * Exceptions: Connection-oriented Subnetwork (because Ethernet is not connection-oriented but may be relevant for an other SN/DL providing the service - have to see), Connection-oriented Network Service (does that even exist?). (TODO Are these needed for any major Standards based on OSI?)
+  * Maybe support for connection-oriented Data Link/Subnetwork Service and Connection-oriented Network Service.
 * Routing protocols ES-IS, IS-IS and IDRP.
 * LLC header support.
 * Use of IP suite of protocols for carrying OSI PDUs
