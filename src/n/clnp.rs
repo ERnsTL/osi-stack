@@ -1,6 +1,6 @@
 extern crate simplelog; //TODO check the paris feature flag for tags, useful?
 
-use std::{collections::HashMap, io::Error, thread::{self, Thread, JoinHandle}, sync::{Arc, Mutex}, time::Duration, ops::Sub};
+use std::{collections::HashMap, io::Error, thread::{self, Thread, JoinHandle}, sync::{Arc, Mutex}, time::Duration};
 
 use advmac::MacAddr6;
 use rand::Rng;

@@ -1,4 +1,4 @@
-use std::{io::{Write, Read}, thread::{self, Thread, JoinHandle}, cell::RefCell, sync::{Arc, Mutex}};
+use std::{io::{Write, Read}, thread::{self, Thread, JoinHandle}, sync::{Arc, Mutex}};
 
 use advmac::MacAddr6;
 use afpacket::sync::RawPacketStream;
