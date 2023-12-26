@@ -805,7 +805,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
     ) {
         let pdu = Pdu::from_buf(ns_userdata);
         debug!("got CLNP packet: {:?}", pdu);
-        match pdu {
+        match pdu { //TODO optimize does match leg ordering affect performance?
             Pdu::Inactive { fixed_mini, data } => {
                 debug!("n_unitdata_indication(): got inactive protocol subset packet");
                 if let Ok(thestr) = std::str::from_utf8(&data.data) {
