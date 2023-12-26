@@ -175,7 +175,6 @@ impl<'a> Pdu<'_> {
                 todo!();
                 //param: &'a NParameter<'a>   //TODO enforce that here only parameter code "1100 0001" is allowed
             },
-            _ => { todo!(); }
         }
         //matches!(self, Self::Inactive { .. })
     }
@@ -460,7 +459,7 @@ const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_FULL: u8 = 0b1000_0001;    // used 
 const NETWORK_LAYER_PROTOCOL_IDENTIFIER_CLNP_INACTIVE: u8 = 0b0000_0000;
 
 #[derive(Debug)]
-struct NFixedPart<'a> {
+pub struct NFixedPart<'a> {
     network_layer_protocol_identifier: &'a u8,
     length_indicator: Option<&'a u8>,
     version_protocol_id_extension: &'a u8,
@@ -562,7 +561,7 @@ impl NFixedPart<'_> {
 }
 
 #[derive(Debug)]
-struct NAddressPart<'a> {
+pub struct NAddressPart<'a> {
     destination_address_length_indicator: Option<&'a u8>,
     destination_address: Vec<u8>,  //TODO optimize - owned only because of Pdu::to_buf() converts Nsap to [u8] and "data is owned by current function"
     source_address_length_indicator: Option<&'a u8>,
@@ -602,7 +601,7 @@ impl NAddressPart<'_> {
 }
 
 #[derive(Debug)]
-struct NSegmentationPart {
+pub struct NSegmentationPart {
     data_unit_identifier: u16,  // did not find a way in from_buf() to reference into the buffer directly and get out an &'a u16 with BE to NE (native endian) conversion, therefore no &u16 but u16 //TODO optimize
     segment_offset: u16,
     total_length: u16
@@ -635,7 +634,7 @@ pub struct NOptionsPart<'a> {
 /// only contained in NOptionsPart
 //TODO decomposition of these parameters
 #[derive(Debug)]
-struct NParameter<'a> {
+pub struct NParameter<'a> {
     parameter_code: &'a u8,
     parameter_length: &'a u8,
     parameter_value: &'a [u8],
@@ -656,13 +655,13 @@ impl NOptionsPart<'_> {
 }
 
 #[derive(Debug)]
-struct NReasonForDiscardPart<'a> {
+pub struct NReasonForDiscardPart<'a> {
     /// has format of a parameter from the options part
     param: &'a NParameter<'a>   //TODO enforce that here only parameter code "1100 0001" is allowed
 }
 
 #[derive(Debug)]
-struct NDataPart<'a> {
+pub struct NDataPart<'a> {
     data: &'a [u8]
 }
 
@@ -683,7 +682,6 @@ pub struct Service<'a> {
     known_hosts: HashMap<String, Nsap>,
     network_entity_title: &'a str,   // own title
     echo_request_correlation_table: Arc<Mutex<HashMap<u16, DateTime<Utc>>>>,    //TODO harden for collisions //TODO currently this is global correlation - have this per-target-NSAP?
-    buffer_out: [u8;65536],
 
     // underlying service assumed by the protocol = subnet service on data link layer
     sn_service_to: Arc<Mutex<rtrb::Producer<SNUnitDataRequest>>>,
@@ -703,7 +701,6 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
             known_hosts: HashMap::new(),
             network_entity_title: network_entity_title,
             echo_request_correlation_table: Arc::new(Mutex::new(HashMap::new())),
-            buffer_out: [0u8; 65536],   // maximum PDU size possible in NS (fixed part, total segment size) has 16 bit
             sn_service_to: Arc::new(Mutex::new(sn_service_to)),
             sn_service_to_wakeup: sn_service_to_wakeup,
             sn_service_from: Arc::new(Mutex::new(sn_service_from)),
@@ -786,7 +783,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                     sn_destination_address: ns_destination_address.local_address,
                     sn_quality_of_service: crate::dl::Qos{},   //TODO optimize useless allocation; and no real conversion - the point of having two different QoS on DL and N layer is that the codes for QoS cloud be different
                     sn_userdata: thevec,    //TODO not perfect abstraction, but should save us a memcpy
-                });
+                }).expect("failed to push into sn_service_to, SN-UNITDATA-REQUEST lost because of congestion"); //TODO congestion situation - apply congestion function
                 //self.sn_service_to.flush();   //TODO make it flush the socket - we can control this via unpark
                 self.sn_service_to_wakeup.lock().expect("failed to sn_service_to_wake").as_ref().expect("failed to get sn_service_to_wakeup (taker)").thread().unpark();
             }
@@ -829,7 +826,7 @@ impl<'a> super::NetworkService<'a> for Service<'a> {
                             sn_destination_address: ns_source_address,
                             sn_quality_of_service: crate::dl::Qos::from_ns_quality_of_service(ns_quality_of_service),    //TODO optimize?  //TODO convert NS QoS to SN QoS
                             sn_userdata: data_inner.data.to_vec()    //TODO security    //TODO optimize?
-                        });
+                        }).expect("failed to push into sn_service_to, SN-UNITDATA-REQUEST lost because of congestion"); //TODO congestion situation, apply congestion function
                         // wake up SN thread
                         sn_service_to_wakeup.thread().unpark();
                     } else {
