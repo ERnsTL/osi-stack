@@ -170,8 +170,15 @@ Abbreviations:
 
 * Connection-oriented, connection-mode, connectionless-mode:
   * CONS = Connection-oriented NS, but is called Connection-Mode NS. And the Protocol is called CLNP (Connection-less Network Protocol) and ... no such protocol for the connection-mode network service, this would be for example provided by ISDN or X.25 - see X.223 "Use of X.25 to provide the OSI connection-mode network service for ITU-T applications", which also contains the 4.1 Network service abbreviations:  CONS = Connection-Mode Network Service. Ha, found an inconsistency.
+  * Also see, X.213 7. Types and classes of network service: "There are two types of Network Service:
+    a) a connection-mode service (defined in Section 2); and
+    b) a connectionless-mode service (defined in Section 3)."
   * Then there is the "connection-oriented" Session and Presentation Protocol as well as "connection-less mode" versions of these two.
+  * Also, there is a connection-oriented and connectionless-mode Transport Service mentioned in X.225 Connection-oriented Session Protocol 5.3 Services assumed from the transport layer referencing X.214 TS, but X.214 calls the two variants section 2 "connection-mode service" and section 3 "connectionless-mode service".
   * Connectionless-Mode is often abbreviated "Connectionless".
+  * Neither X.200 (basic reference model), X.210 (basic reference model: conventions for the definition of OSI services), neither X.233 (CLNP) nor X.213 (NS) mention an explicit abbreviation for the connection-mode network service, but all never mention "connection-oriented" only "connection-mode" network service.
+  * So the consistent naming schema would be "CM" and "CL", despite the wording "connection-oriented" showing up in offical standard names.
+* How to define OSI-services, see X.210 Annex F pp.
 
 
 ## Do
