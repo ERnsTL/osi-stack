@@ -5,7 +5,9 @@
 
 * Change clnp echo_request() to use n_unitdata_request().
 * Find out it echo request function should use n-unitdata-request primitive, because latter one does not have parameter to select PDU type.
----
+
+Further:
+
 * Solving 2 borrows needs to be done:
   * [Thread 1](https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/)
   * [Thread 2](https://stackoverflow.com/questions/70050258/multiple-mutable-borrows-in-rust)
