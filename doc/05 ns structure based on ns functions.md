@@ -89,20 +89,24 @@ Goal:  list of tests (PICS)
   * TODO convergence function? research.
 * 6 protocol functions
   * reference to table what must be implemented in 6.21 (TODO actually 6.22)
-* 6.1 pdu composition function
+* 6.1 pdu composition function (research DONE, impl part see TODOs)
   * Construction of PDU according to encoding rules in clause 7.
   * TODO paragraph 2 - NPAI (Network Protocol Address Information) for source and destination fields is derived from NS-Source-Address and NS-Destination-Address. But how?
-  * DUID tracking:
+  * TODO DUID tracking:
     * "During the composition of the protocol data unit, a Data Unit Identifier (DUID) is assigned to distinguish this request to transmit NS-Userdata to a particular destination Network service user or users from other such requests. The originator of the PDU shall choose the DUID so that it remains unique (for this source and destination address pair) for the maximum lifetime of the Initial PDU in the network; this rule applies for any PDUs derived from the Initial PDU as a result of the application of the segmentation function (see 6.7). Derived PDUs are considered to correspond to the same Initial PDU, and hence to the same N-UNITDATA request, if they have the same source address, destination address, and data unit identifier."
     * "The DUID is also available for ancillary functions such as error reporting (see 6.10)"
     * Which means error reporting always pertains to a full PDU transmission - it cannot reference a part of a PDU.
   * Total length:
     * "The total length of the PDU in octets is determined by the originator and placed in the total length field of the PDU header. This field is not changed for the lifetime of the protocol data unit, and has the same value in the Initial PDU and in each of any Derived PDUs that may be created from the Initial PDU."
     * "When the non-segmenting protocol subset is employed, neither the total length field nor the data unit identifier field is present. The rules governing the PDU composition function are modified in this case as follows. During the composition of the protocol data unit, the total length of the PDU in octets is determined by the originator and placed in the segment length field of the PDU header. This field is not changed for the lifetime of the PDU. No data unit identification is provided."
-    * So, DUID is only needed for full protocol.
-* 6.2 pdu decomposition function
-  * TODO
-* 6.3 header format analyses function
+    * So, DUID is only needed for the full protocol.
+* 6.2 pdu decomposition function (DONE research, TODO impl)
+  * TODO NPAI - "The NS-Source-Address and NS-Destination-Address parameters of the N-UNITDATA indication are recovered from the NPAI in the source address and destination address fields of the PDU header."
+  * TODO "The data part of the received PDU is retained until all segments of the original service data unit have been received; collectively, these form the NS-Userdata parameter of the N-UNITDATA indication."
+  * TODO QoS "nformation relating to the Quality of Service (QOS) provided during the
+transmission of the PDU is determined from the quality of service and other information contained in the options part of
+the PDU header. This information constitutes the NS-Quality-of-Service parameter of the N-UNITDATA indication." - what is taken from the options part?
+* 6.3 header format analysis function
   * TODO
 * 6.4 TODO
 * 6.5 TODO
