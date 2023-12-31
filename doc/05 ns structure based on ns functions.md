@@ -5,6 +5,8 @@
 
 * Change clnp echo_request() to use n_unitdata_request().
 * Find out it echo request function should use n-unitdata-request primitive, because latter one does not have parameter to select PDU type.
+* Implement 6.1 PDU Composition function.
+* 6.1 DUID tracking on n-unitdata-request initial PDUs and derived PDUs (segmentation)
 
 Further:
 
@@ -12,7 +14,7 @@ Further:
   * [Thread 1](https://www.reddit.com/r/rust/comments/ah6fhi/mutably_borrowing_two_things_simultaneously_from/)
   * [Thread 2](https://stackoverflow.com/questions/70050258/multiple-mutable-borrows-in-rust)
   * For example ns.get_serviced_nsap() and ns.echo_request() results in 2 borrows on ns :-(
-* Implement correct PDU composition function for Inactive Protocol subset.
+* Implement correct PDU composition function for Inactive Protocol subset .
 * Implement correct PDU decomposition function for Inactive Protocol subset.
 * Implement correct Header Analysis function for Inactive Protocol subset.
 * Check if Inactive Protocol subset should report errors - if ER bit is set, send an error report? But in 6.22 functions table it is not listed that error reports are mandatory for the Inactive subset.
@@ -88,7 +90,15 @@ Goal:  list of tests (PICS)
 * 6 protocol functions
   * reference to table what must be implemented in 6.21 (TODO actually 6.22)
 * 6.1 pdu composition function
-  * ...TODO
+  * Construction of PDU according to encoding rules in clause 7.
+  * TODO paragraph 2 - NPAI (Network Protocol Address Information) for source and destination fields is derived from NS-Source-Address and NS-Destination-Address. But how?
+  * DUID tracking:
+    * "During the composition of the protocol data unit, a Data Unit Identifier (DUID) is assigned to distinguish this request to transmit NS-Userdata to a particular destination Network service user or users from other such requests. The originator of the PDU shall choose the DUID so that it remains unique (for this source and destination address pair) for the maximum lifetime of the Initial PDU in the network; this rule applies for any PDUs derived from the Initial PDU as a result of the application of the segmentation function (see 6.7). Derived PDUs are considered to correspond to the same Initial PDU, and hence to the same N-UNITDATA request, if they have the same source address, destination address, and data unit identifier."
+    * "The DUID is also available for ancillary functions such as error reporting (see 6.10)"
+    * Which means error reporting always pertains to a full PDU transmission - it cannot reference a part of a PDU.
+  * Total length:
+    * "The total length of the PDU in octets is determined by the originator and placed in the total length field of the PDU header. This field is not changed for the lifetime of the protocol data unit, and has the same value in the Initial PDU and in each of any Derived PDUs that may be created from the Initial PDU."
+    * "When the non-segmenting protocol subset is employed, neither the total length field nor the data unit identifier field is present. The rules governing the PDU composition function are modified in this case as follows. During the composition of the protocol data unit, the total length of the PDU in octets is determined by the originator and placed in the segment length field of the PDU header. This field is not changed for the lifetime of the PDU. No data unit identification is provided."
 * 6.2 pdu decomposition function
   * TODO
 * 6.3 header format analyses function
