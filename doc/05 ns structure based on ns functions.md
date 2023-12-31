@@ -99,6 +99,7 @@ Goal:  list of tests (PICS)
   * Total length:
     * "The total length of the PDU in octets is determined by the originator and placed in the total length field of the PDU header. This field is not changed for the lifetime of the protocol data unit, and has the same value in the Initial PDU and in each of any Derived PDUs that may be created from the Initial PDU."
     * "When the non-segmenting protocol subset is employed, neither the total length field nor the data unit identifier field is present. The rules governing the PDU composition function are modified in this case as follows. During the composition of the protocol data unit, the total length of the PDU in octets is determined by the originator and placed in the segment length field of the PDU header. This field is not changed for the lifetime of the PDU. No data unit identification is provided."
+    * So, DUID is only needed for full protocol.
 * 6.2 pdu decomposition function
   * TODO
 * 6.3 header format analyses function
