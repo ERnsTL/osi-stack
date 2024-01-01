@@ -121,9 +121,21 @@ Goal:  list of tests (PICS)
   * For all protocol variants: Check for multicast source address:
     * If a Network entity supports multicast transmission, check that PDU does not contain a group Network address in the source address field. Any PDU header analysed to have a group address in the source address field shall be discarded.
 * 6.3.1 Multicast transfer (TODO research, TODO impl):
-  * ...
-* 6.4 PDU lifetime control function (TODO research, TODO impl):
-  * ...
+  * ...TODO not sure what to make of this paragraph, seems to be an optional feature
+* 6.4 PDU lifetime control function (DONe research, TODO impl):
+  * Decide if a) it should be forwarded or b) if TTL has expired, and it should be discarded.
+  * lifetime field in the PDU header, put there by the originating NE
+  * if segmentation function is applied to a PDU, then put the same TTL value into initial and derived PDUs
+  * lifetime is decremented by every NE, which processes the PDU
+  * decrement by >= 1
+  * "decrement by more than 1 if 
+    * the transit delay in the underlying service from which the PDU was received; and
+    * the delay within the system processing the PDU
+  * exceeds or is estimated to exceed 500 ms. In this case, the lifetime field shall be decremented by one for each additional 500 ms of actual or estimated delay."
+  * if lifetime would be negative, place value 0
+  * if lifetime If the lifetime field reaches a value of zero before the PDU is delivered to its destination, the PDU shall be discarded.
+    * and The error reporting function shall be invoked as described in 6.10. This may result in the generation of an Error Report PDU.
+  * It is a local matter whether or not the destination Network entity performs the lifetime control function. So, need a configuration option for that.
 * 6.5 Route PDU function (TODO research, TODO impl):
   * ...
 * 6.6 Forward PDU function (TODO research, TODO impl):
