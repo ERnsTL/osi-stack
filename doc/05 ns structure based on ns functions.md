@@ -63,20 +63,20 @@ Document research in X.233:
 Goal:  list of requirements (must, shall, may) for implementation work packages
 Goal:  list of tests (PICS)
 
-* 1 scope
-* 2 normative references
-* 3 definitions
-* 4 abbreviations
-* 5 overview of the protocol
-* 5.1 internal organization of the network layer
-* 5.2 subsets of the protocol
+* 1 scope (TODO research, TODO impl):
+* 2 normative references (TODO research, TODO impl):
+* 3 definitions (TODO research, TODO impl):
+* 4 abbreviations (TODO research, TODO impl):
+* 5 overview of the protocol (TODO research, TODO impl):
+* 5.1 internal organization of the network layer (TODO research, TODO impl):
+* 5.2 subsets of the protocol (TODO research, TODO impl):
   * Inactive Network Layer Protocol Subset
   * Non-segmenting Protocol Subset
-* 5.3.1 addresses
+* 5.3.1 addresses (TODO research, TODO impl):
   * NSAP addresses in preferred format.
   * multicast optional, if multiast then destination address = a group NSAP and source != group NSAP.
-* 5.3.2 network entity titles
-* 5.4 service provided
+* 5.3.2 network entity titles (TODO research, TODO impl):
+* 5.4 service provided (TODO research, TODO impl):
   * service primitive (API)
   * NSDU max length = 64512 octects
   * N-UNITDATA request and indication, parameters:
@@ -84,10 +84,10 @@ Goal:  list of tests (PICS)
     * NS-Destination-Address
     * NS-Quality-of-Service
     * NS-Userdata
-* 5.5 underlying service assumed
+* 5.5 underlying service assumed (TODO research, TODO impl):
   * assumed underlying "subnetwork protocol" = Ethernet in most cases, but this does not have QoS and is the same as the DL service. described in clause 6.
   * TODO convergence function? research.
-* 6 protocol functions
+* 6 protocol functions (TODO research, TODO impl):
   * reference to table what must be implemented in 6.21 (TODO actually 6.22)
 * 6.1 pdu composition function (research DONE, impl part see TODOs)
   * Construction of PDU according to encoding rules in clause 7.
@@ -106,7 +106,7 @@ Goal:  list of tests (PICS)
     * X.213 A.3.1.1 Subnetwork address in Note: SNPA address is NOT an NSAP, clearly.
   * TODO "The data part of the received PDU is retained until all segments of the original service data unit have been received; collectively, these form the NS-Userdata parameter of the N-UNITDATA indication."
   * TODO QoS "Information relating to the Quality of Service (QOS) provided during the transmission of the PDU is determined from the quality of service and other information contained in the options part of the PDU header. This information constitutes the NS-Quality-of-Service parameter of the N-UNITDATA indication." - TODO what is taken from the options part?
-* 6.3 header format analysis function (TODO extraction, TODO impl)
+* 6.3 header format analysis function (DONE research, TODO impl)
   * Summary: Determine protocol subset, then check if destination has been reached.
   * Determine protocol subset:
     * If full protocol or inactive subset is in use.
@@ -120,28 +120,45 @@ Goal:  list of tests (PICS)
     * Determines that either a) the Subnetwork Point of Attachment (SNPA) address encoded as NPAI in the supporting subnetwork protocol (see 8.1) corresponds directly to an NSAP address serviced by this Network entity, or b) that an error has occurred."
   * For all protocol variants: Check for multicast source address:
     * If a Network entity supports multicast transmission, check that PDU does not contain a group Network address in the source address field. Any PDU header analysed to have a group address in the source address field shall be discarded.
-* 6.4 TODO
-* 6.5 TODO
-* 6.6 TODO
-* 6.7 TODO
-* 6.8 TODO
-* 6.9 TODO
-* 6.10 TODO
-* 6.11 TODO
-* 6.12 TODO
-* 6.13 TODO
-* 6.14 TODO
-* 6.15 TODO
-* 6.16 TODO
-* 6.17 TODO
-* 6.18 TODO
-* 6.19 echo request function
-  * ...TODO
-* 6.20 echo response function
-  * ...TODO
-* 6.21 scope control function
-  * ...TODO
-* 6.22 classification of functions
+* 6.3.1 Multicast transfer (TODO research, TODO impl):
+  * ...
+* 6.4 PDU lifetime control function (TODO research, TODO impl):
+  * ...
+* 6.5 Route PDU function (TODO research, TODO impl):
+  * ...
+* 6.6 Forward PDU function (TODO research, TODO impl):
+  * ...
+* 6.7 Segmentation function (TODO research, TODO impl):
+  * ...
+* 6.8 Reassembly function (TODO research, TODO impl):
+  * 
+* 6.9 Discard PDU function (TODO research, TODO impl):
+  * ...
+* 6.10 Error reporting function (TODO research, TODO impl):
+  * ...
+* 6.11 PDU header error detection function (TODO research, TODO impl):
+  * ...
+* 6.12 Padding function (TODO research, TODO impl):
+  * ...
+* 6.13 Security function (TODO research, TODO impl):
+  * ...
+* 6.14 Source routeing function (TODO research, TODO impl):
+  * ...
+* 6.15 Record route function (TODO research, TODO impl):
+  * ...
+* 6.16 Quality of service maintenance function (TODO research, TODO impl):
+  * ...
+* 6.17 Priority function (TODO research, TODO impl):
+  * ...
+* 6.18 Congestion notification function (TODO research, TODO impl):
+  * ...
+* 6.19 Echo request function (TODO research, TODO impl):
+  * ...
+* 6.20 Echo response function (TODO research, TODO impl):
+  * ...
+* 6.21 scope control function (TODO research, TODO impl):
+  * ...
+* 6.22 classification of functions (TODO research, TODO impl):
   * important table
   * type 1,2,3 functions TODO
   * inactive subset:
@@ -152,8 +169,8 @@ Goal:  list of tests (PICS)
     * TODO
   * full protocol:
     * TODO
-* 7 structure and encoding of PDUs
-* 7.1 structure
+* 7 structure and encoding of PDUs (TODO research, TODO impl):
+* 7.1 structure (TODO research, TODO impl):
   * big endian
   * with exception of inactive subset, PDUs shall contain:
     1. fixed part = 7.2
@@ -166,31 +183,31 @@ Goal:  list of tests (PICS)
   * inactive subset:
     * only 7.8 present
     * 7.2 to 7.5 do not apply = only 7.8 (mini-fixed part) and 7.6 (data)
-* 7.2 fixed part
+* 7.2 fixed part (TODO research, TODO impl):
   * TODO
-* 7.3 address part
+* 7.3 address part (TODO research, TODO impl):
   * TODO
-* 7.4 segmentation part
+* 7.4 segmentation part (TODO research, TODO impl):
   * TODO
-* 7.5 options part
+* 7.5 options part (TODO research, TODO impl):
   * TODO
-* 7.6 data part
+* 7.6 data part (TODO research, TODO impl):
   * TODO
-* 7.7 data PDU (!) = total packet structure
+* 7.7 data PDU (!) = DT PDU, shows total packet structure (TODO research, TODO impl):
   * TODO
-* 7.8 inactive protocol subset header
+* 7.8 inactive protocol subset header (TODO research, TODO impl):
   * TODO
-* 7.9 error report PDU (ER PDU)
+* 7.9 error report PDU = ER PDU (TODO research, TODO impl):
   * TODO
-* 7.10 echo request PDU (...TODO abbrev)
+* 7.10 echo request PDU = ERQ PDU (TODO research, TODO impl):
   * TODO
-* 7.11 echo response PDU (TODO short name)
+* 7.11 echo response PDU = ERP PDU (TODO research, TODO impl):
   * TODO
-* 7.12 multicast data PDU (TODO abbrev)
+* 7.12 multicast data PDU = MD PDU (TODO research, TODO impl):
   * TODO
-* 8 provision of the underlying service
+* 8 provision of the underlying service (TODO research, TODO impl):
   * TODO
-* 9 conformance
+* 9 conformance (TODO research, TODO impl):
   * TODO
 * annex A - PICS proforma
   * TODO
