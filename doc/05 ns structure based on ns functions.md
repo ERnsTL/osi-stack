@@ -118,6 +118,8 @@ Goal:  list of tests (PICS)
   * If inacive protocol subset:
     * if NLIP protocol ID = inactive protocol ID, then no further header analysis.
     * Determines that either a) the Subnetwork Point of Attachment (SNPA) address encoded as NPAI in the supporting subnetwork protocol (see 8.1) corresponds directly to an NSAP address serviced by this Network entity, or b) that an error has occurred."
+  * For all protocol variants: Check for multicast source address:
+    * If a Network entity supports multicast transmission, check that PDU does not contain a group Network address in the source address field. Any PDU header analysed to have a group address in the source address field shall be discarded.
 * 6.4 TODO
 * 6.5 TODO
 * 6.6 TODO
