@@ -102,12 +102,22 @@ Goal:  list of tests (PICS)
     * So, DUID is only needed for the full protocol.
 * 6.2 pdu decomposition function (DONE research, TODO impl)
   * TODO NPAI - "The NS-Source-Address and NS-Destination-Address parameters of the N-UNITDATA indication are recovered from the NPAI in the source address and destination address fields of the PDU header."
+    * Crossreference: Connection between NPAI, NSAP address, Network Address, Network addresses, Subnetwork address, SNPA, SNPA address are cleared in X.213 Network Service Definition in A.3 Concepts and terminology, but nothing about NPAI in X.200 Basic Model.
+    * X.213 A.3.1.1 Subnetwork address in Note: SNPA address is NOT an NSAP, clearly.
   * TODO "The data part of the received PDU is retained until all segments of the original service data unit have been received; collectively, these form the NS-Userdata parameter of the N-UNITDATA indication."
-  * TODO QoS "nformation relating to the Quality of Service (QOS) provided during the
-transmission of the PDU is determined from the quality of service and other information contained in the options part of
-the PDU header. This information constitutes the NS-Quality-of-Service parameter of the N-UNITDATA indication." - what is taken from the options part?
-* 6.3 header format analysis function
-  * TODO
+  * TODO QoS "Information relating to the Quality of Service (QOS) provided during the transmission of the PDU is determined from the quality of service and other information contained in the options part of the PDU header. This information constitutes the NS-Quality-of-Service parameter of the N-UNITDATA indication." - TODO what is taken from the options part?
+* 6.3 header format analysis function (TODO extraction, TODO impl)
+  * Summary: Determine protocol subset, then check if destination has been reached.
+  * Determine protocol subset:
+    * If full protocol or inactive subset is in use.
+    * based on NLPID field.
+    * if CLNP ID is given -> either full protocol or non-segmenting subset is in use (but we dont know which one the sender is using just from the PDUs).
+  * If full or non-segmenting, then determine if final destination has been reached:
+    * "using the destination address in the PDU header."
+    * "If multicast transfer is not supported and if the destination address provided in the PDU identifies either a Network entity title of this Network entity or an NSAP served by this Network entity, then the PDU has reached its destination; if not, it shall be forwarded." TODO derive exact logic from that
+  * If inacive protocol subset:
+    * if NLIP protocol ID = inactive protocol ID, then no further header analysis.
+    * Determines that either a) the Subnetwork Point of Attachment (SNPA) address encoded as NPAI in the supporting subnetwork protocol (see 8.1) corresponds directly to an NSAP address serviced by this Network entity, or b) that an error has occurred."
 * 6.4 TODO
 * 6.5 TODO
 * 6.6 TODO
