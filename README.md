@@ -36,8 +36,8 @@ Goal:
   * Maybe support for connection-oriented Data Link/Subnetwork Service and Connection-oriented Network Service.
 * Routing protocols ES-IS, IS-IS and IDRP.
 * LLC header support.
-* Use of IP suite of protocols for carrying OSI PDUs
-* Carrying IPv4+IPv6 payload in routing protocols.
+* Option to use IP suite of protocols for carrying OSI PDUs
+* Carrying IPv4+IPv6 payload in routing protocols and in NLPID.
 * Management support.
 * Transport Layer Security, Network Layer Security.
 * Application-layer protocols FTAM, VT, ...
