@@ -85,8 +85,8 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     sn.run(ns2sn_consumer_wakeup);
     // start NS
     ns.run(sn2ns_consumer_wakeup);
-    // wait for above run() methods to give their thread wakeup handles
-    thread::sleep(Duration::from_millis(100));
+    // wait for above run() methods to give their thread wakeup handles - otherwise yet another signal channel needs to be implemented
+    thread::sleep(Duration::from_millis(500));
 
     // NOTE: must return sn with the contained RawPacketStream, otherwise it goes out of scope, even though owned by the threads in sn.run(),
     // but they have only clones. The original must not trigger its free(). So we return it...
