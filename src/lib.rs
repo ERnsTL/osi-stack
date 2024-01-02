@@ -65,6 +65,7 @@ pub fn new<'a>(interface_name: &'a str, network_entity_title: &'a str, hosts: Ve
     // In every thread where there are pops from inter-layer connections done, it needs to give its thread handle into the arc<mutex (the well-known place) where the sender will get it from
     let (sn2ns_producer, sn2ns_consumer) = rtrb::RingBuffer::new(7);
     let (ns2sn_producer, ns2sn_consumer) = rtrb::RingBuffer::new(7);
+    //TODO optimize - WakeupHandle does not require Arc<Mutex<WakeupHandle>>, but Arc<WakeupHandle> is enough - make use of this shortcut
     let sn2ns_consumer_wakeup: Arc<Mutex<Option<JoinHandle<Thread>>>> = Arc::new(Mutex::new(None));
     let ns2sn_consumer_wakeup: Arc<Mutex<Option<JoinHandle<Thread>>>> = Arc::new(Mutex::new(None));
     let sn = dl::ethernet::Service::new(ps, ns2sn_consumer, sn2ns_producer, sn2ns_consumer_wakeup.clone());
