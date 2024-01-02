@@ -3,6 +3,7 @@
 
 ## Plan
 
+* Finish research for requirements in whole of X.233 (CLNP) in order to get overview of requirements and base to-be architecture on that.
 * Change clnp echo_request() to use n_unitdata_request().
 * Find out it echo request function should use n-unitdata-request primitive, because latter one does not have parameter to select PDU type.
 * Implement 6.1 PDU Composition function.
