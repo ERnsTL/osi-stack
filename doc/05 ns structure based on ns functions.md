@@ -40,6 +40,8 @@ Further:
 09:
 
 * Add "osi hosts.txt" support.
+* What does a "DNS name" look like in the OSI environment?
+  * For example web pages addresses, do they really use the system-title? "Go PIZZABURGERS"?
 * Add correct NSAP support <-> quick parsing of 49.1.1.macaddress
 
 10:
