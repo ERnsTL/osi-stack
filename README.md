@@ -52,6 +52,13 @@ Goal:
 * Linux kernel module for layer 2,3,4
 * multi-platform support (Linux, Mac, Windows)
 
+Related:
+
+* SS7 support (built on OSI)
+* ATN support (built on OSI, transitioning from OSI as base to IP in newer airplanes)
+* [OPC UA](https://en.wikipedia.org/wiki/OPC_UA) (running via TCP, but may run via TP4 as well)
+* energy exchange protocols
+
 Written in Rust, with planned binding for C and further, more programming languages.
 
 ## License
