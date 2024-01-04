@@ -43,6 +43,7 @@ Goal:
 * Application-layer protocols FTAM, VT, ...
 * X.400
 * X.500
+* X.509 (note, consider https://en.wikipedia.org/wiki/X.509#Security)
 * X.400 EDI
 * X.601
 * X.605
